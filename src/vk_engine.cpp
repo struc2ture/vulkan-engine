@@ -1373,9 +1373,9 @@ void VulkanEngine::imgui_uis()
     }
     ImGui::End();
 
-    imgui_node_tree_window();
+    //imgui_node_tree_window();
 
-    imgui_gltf_window("struct_quinoa", loadedScenes["struct_quinoa"].get());
+    //imgui_gltf_window("struct_quinoa", loadedScenes["struct_quinoa"].get());
     
     if (_inspectedMaterial != nullptr)
     {
@@ -1399,7 +1399,7 @@ void VulkanEngine::imgui_uis()
     }
     ImGui::End();
 
-    imgui_loaded_scene_inspector(_sceneTest);
+    imgui_local_scene_inspector(_sceneTest);
 
     // some imgui ui to test
     ImGui::ShowDemoWindow();
@@ -1561,9 +1561,9 @@ void VulkanEngine::imgui_material_inspector(const GLTFMaterial *material)
     ImGui::End();
 }
 
-void VulkanEngine::imgui_loaded_scene_inspector(std::shared_ptr<LoadedScene> scene)
+void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene)
 {
-    if (ImGui::Begin("Loaded Scene Inspector"))
+    if (ImGui::Begin("Local Scene Inspector"))
     {
         ImGui::Text("Path: %s", scene->path.c_str());
         ImGui::Text("");
@@ -1746,7 +1746,7 @@ bool is_visible(const RenderObject &obj, const glm::mat4 &viewproj)
     }
 }
 
-std::shared_ptr<DrawScene> VulkanEngine::uploadLocalScene(std::shared_ptr<LoadedScene> loadedScene)
+std::shared_ptr<DrawScene> VulkanEngine::uploadLocalScene(std::shared_ptr<LocalScene> loadedScene)
 {
     auto drawScene = std::make_shared<DrawScene>();
     drawScene->creator = this;
@@ -1759,7 +1759,7 @@ std::shared_ptr<DrawScene> VulkanEngine::uploadLocalScene(std::shared_ptr<Loaded
 
     drawScene->descriptorPool.init(_device, loadedScene->materials.size(), sizes);
 
-    std::unordered_map<std::shared_ptr<LoadedSampler>, std::shared_ptr<GLTFSampler>> samplerMap;
+    std::unordered_map<std::shared_ptr<LocalSampler>, std::shared_ptr<GLTFSampler>> samplerMap;
     for (auto &sampler : loadedScene->samplers)
     {
         auto drawSampler = std::make_shared<GLTFSampler>();
@@ -1784,7 +1784,7 @@ std::shared_ptr<DrawScene> VulkanEngine::uploadLocalScene(std::shared_ptr<Loaded
     }
 
     const bool mipmapped = true;
-    std::unordered_map<std::shared_ptr<LoadedImage>, std::shared_ptr<GLTFImage>> imageMap;
+    std::unordered_map<std::shared_ptr<LocalImage>, std::shared_ptr<GLTFImage>> imageMap;
     for (auto &image : loadedScene->images)
     {
         auto drawImage = std::make_shared<GLTFImage>();
@@ -1813,7 +1813,7 @@ std::shared_ptr<DrawScene> VulkanEngine::uploadLocalScene(std::shared_ptr<Loaded
 
     int dataIndex = 0;
 
-    std::unordered_map<std::shared_ptr<LoadedMaterial>, std::shared_ptr<GLTFMaterial>> materialMap;
+    std::unordered_map<std::shared_ptr<LocalMaterial>, std::shared_ptr<GLTFMaterial>> materialMap;
     for (auto &material : loadedScene->materials)
     {
         // Copies to GPU buffer
@@ -1852,7 +1852,7 @@ std::shared_ptr<DrawScene> VulkanEngine::uploadLocalScene(std::shared_ptr<Loaded
         materialMap[material] = drawMaterial;
     }
 
-    std::unordered_map<std::shared_ptr<LoadedMesh>, std::shared_ptr<MeshAsset>> meshMap;
+    std::unordered_map<std::shared_ptr<LocalMesh>, std::shared_ptr<MeshAsset>> meshMap;
     for (auto &mesh : loadedScene->meshes)
     {
         GPUMeshBuffers meshBuffers = uploadMesh(mesh->indices, mesh->vertices);
@@ -1875,7 +1875,7 @@ std::shared_ptr<DrawScene> VulkanEngine::uploadLocalScene(std::shared_ptr<Loaded
         meshMap[mesh] = meshAsset;
     }
 
-    std::unordered_map<std::shared_ptr<LoadedNode>, std::shared_ptr<Node>> nodeMap;
+    std::unordered_map<std::shared_ptr<LocalNode>, std::shared_ptr<Node>> nodeMap;
     for (auto &node : loadedScene->nodes)
     {
         std::shared_ptr<Node> drawNode;

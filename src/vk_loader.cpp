@@ -551,9 +551,9 @@ void LoadedGLTF::clearAll()
     }
 }
 
-LoadedImage load_image_data(fastgltf::Asset &asset, fastgltf::Image &image, std::filesystem::path parentPath)
+LocalImage load_image_data(fastgltf::Asset &asset, fastgltf::Image &image, std::filesystem::path parentPath)
 {
-    LoadedImage newImage {};
+    LocalImage newImage {};
     int width, height, nrChannels;
 
     std::visit(
@@ -702,11 +702,11 @@ std::optional<AllocatedImage> load_image(VulkanEngine *engine, fastgltf::Asset &
     }
 }
 
-std::optional<std::shared_ptr<LoadedScene>> load_scene(VulkanEngine *engine, std::string_view filePath)
+std::optional<std::shared_ptr<LocalScene>> load_scene(VulkanEngine *engine, std::string_view filePath)
 {
     fmt::println("Loading Scene: {}", filePath);
 
-    auto scene = std::make_shared<LoadedScene>();
+    auto scene = std::make_shared<LocalScene>();
     scene->path = filePath.data();
 
     fastgltf::Parser parser {};
@@ -755,7 +755,7 @@ std::optional<std::shared_ptr<LoadedScene>> load_scene(VulkanEngine *engine, std
 
     for (fastgltf::Sampler &sampler : gltf.samplers)
     {
-        auto newSampler = std::make_shared<LoadedSampler>();
+        auto newSampler = std::make_shared<LocalSampler>();
         newSampler->name = sampler.name.c_str();
         newSampler->magFilter = extract_filter(sampler.magFilter.value_or(fastgltf::Filter::Nearest));
         newSampler->minFilter = extract_filter(sampler.minFilter.value_or(fastgltf::Filter::Nearest));
@@ -765,7 +765,7 @@ std::optional<std::shared_ptr<LoadedScene>> load_scene(VulkanEngine *engine, std
 
     for (fastgltf::Image &image : gltf.images)
     {
-        auto newImage = std::make_shared<LoadedImage>(load_image_data(gltf, image, path.parent_path()));
+        auto newImage = std::make_shared<LocalImage>(load_image_data(gltf, image, path.parent_path()));
         scene->images.push_back(newImage);
     }
 
@@ -780,7 +780,7 @@ std::optional<std::shared_ptr<LoadedScene>> load_scene(VulkanEngine *engine, std
         material_params.metal_rough_factors.r = mat.pbrData.metallicFactor;
         material_params.metal_rough_factors.g = mat.pbrData.roughnessFactor;
 
-        auto newMaterial = std::make_shared<LoadedMaterial>();
+        auto newMaterial = std::make_shared<LocalMaterial>();
         newMaterial->name = mat.name.c_str();
         newMaterial->hasColorImage = mat.pbrData.baseColorTexture.has_value();
         if (newMaterial->hasColorImage)
@@ -801,7 +801,7 @@ std::optional<std::shared_ptr<LoadedScene>> load_scene(VulkanEngine *engine, std
 
     for (fastgltf::Mesh &mesh : gltf.meshes)
     {
-        auto newMesh = std::make_shared<LoadedMesh>();
+        auto newMesh = std::make_shared<LocalMesh>();
         newMesh->name = mesh.name.c_str();
 
         indices.clear();
@@ -809,7 +809,7 @@ std::optional<std::shared_ptr<LoadedScene>> load_scene(VulkanEngine *engine, std
 
         for (auto &&p : mesh.primitives)
         {
-            LoadedPrimitive newPrimitive {};
+            LocalPrimitive newPrimitive {};
             newPrimitive.startIndex = (uint32_t)indices.size();
             newPrimitive.indexCount = (uint32_t)gltf.accessors[p.indicesAccessor.value()].count;
 
@@ -913,7 +913,7 @@ std::optional<std::shared_ptr<LoadedScene>> load_scene(VulkanEngine *engine, std
     uint64_t node_id = 0;
     for (fastgltf::Node &node : gltf.nodes)
     {
-        auto newNode = std::make_shared<LoadedNode>();
+        auto newNode = std::make_shared<LocalNode>();
 
         if (node.meshIndex.has_value())
         {

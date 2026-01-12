@@ -241,7 +241,7 @@ public:
 	bool _consoleMode;
 	const GLTFMaterial *_inspectedMaterial{ nullptr };
 
-	std::shared_ptr<LoadedScene> _sceneTest;
+	std::shared_ptr<LocalScene> _sceneTest;
 	std::shared_ptr<DrawScene> _drawSceneTest;
 
 	void update_scene();
@@ -272,7 +272,7 @@ public:
 	void destroy_image(const AllocatedImage &img);
 	void destroy_buffer(const AllocatedBuffer &buffer);
 
-	std::shared_ptr<DrawScene> uploadLocalScene(std::shared_ptr<LoadedScene> loaded_scene);
+	std::shared_ptr<DrawScene> uploadLocalScene(std::shared_ptr<LocalScene> loaded_scene);
 
 private:
 	void init_vulkan();
@@ -300,7 +300,7 @@ private:
 	void imgui_node_tree_node(Node *node);
 	void imgui_gltf_window(std::string name, const LoadedGLTF *loadedGLTF);
 	void imgui_material_inspector(const GLTFMaterial *material);
-	void imgui_loaded_scene_inspector(std::shared_ptr<LoadedScene> scene);
+	void imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene);
 
 	void set_console_mode(bool state);
 };

@@ -82,7 +82,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanEngine *engine, std::s
 
 std::optional<AllocatedImage> load_image(VulkanEngine *engine, fastgltf::Asset &asset, fastgltf::Image &image, std::filesystem::path parentPath);
 
-struct LoadedImage
+struct LocalImage
 {
     std::string name;
     int width, height;
@@ -91,7 +91,7 @@ struct LoadedImage
     void *data;
 };
 
-struct LoadedSampler
+struct LocalSampler
 {
     std::string name;
     VkFilter magFilter;
@@ -99,57 +99,57 @@ struct LoadedSampler
     VkSamplerMipmapMode mipmapMode;
 };
 
-struct LoadedMaterial
+struct LocalMaterial
 {
     std::string name;
     bool hasColorImage;
-    std::shared_ptr<LoadedImage> colorImage;
-    std::shared_ptr<LoadedSampler> colorSampler;
+    std::shared_ptr<LocalImage> colorImage;
+    std::shared_ptr<LocalSampler> colorSampler;
     MaterialParameters params;
     MaterialPass passType;
 };
 
-struct LoadedPrimitive
+struct LocalPrimitive
 {
     uint32_t startIndex;
     uint32_t indexCount;
     Bounds bounds;
-    std::shared_ptr<LoadedMaterial> material;
+    std::shared_ptr<LocalMaterial> material;
 };
 
-struct LoadedMesh
+struct LocalMesh
 {
     std::string name;
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
-    std::vector<LoadedPrimitive> primitives;
+    std::vector<LocalPrimitive> primitives;
 };
 
-struct LoadedNode
+struct LocalNode
 {
     std::string name;
     uint64_t node_id;
 
-    std::weak_ptr<LoadedNode> parent;
-    std::vector<std::shared_ptr<LoadedNode>> children;
+    std::weak_ptr<LocalNode> parent;
+    std::vector<std::shared_ptr<LocalNode>> children;
 
     glm::mat4 localTransform;
 
-    std::shared_ptr<LoadedMesh> loaded_mesh;
+    std::shared_ptr<LocalMesh> loaded_mesh;
 };
 
-struct LoadedScene
+struct LocalScene
 {
     std::string path;
 
-    std::vector<std::shared_ptr<LoadedMesh>> meshes;
-    std::vector<std::shared_ptr<LoadedNode>> nodes;
-    std::vector<std::shared_ptr<LoadedImage>> images;
-    std::vector<std::shared_ptr<LoadedSampler>> samplers;
-    std::vector<std::shared_ptr<LoadedMaterial>> materials;
-    std::vector<std::shared_ptr<LoadedNode>> topNodes;
+    std::vector<std::shared_ptr<LocalMesh>> meshes;
+    std::vector<std::shared_ptr<LocalNode>> nodes;
+    std::vector<std::shared_ptr<LocalImage>> images;
+    std::vector<std::shared_ptr<LocalSampler>> samplers;
+    std::vector<std::shared_ptr<LocalMaterial>> materials;
+    std::vector<std::shared_ptr<LocalNode>> topNodes;
 };
 
-LoadedImage load_image_data(fastgltf::Asset &asset, fastgltf::Image &image, std::filesystem::path parentPath);
-void free_image_data(LoadedImage &image); // TODO: Implement and put into LoadedScene destructor
-std::optional<std::shared_ptr<LoadedScene>> load_scene(VulkanEngine *engine, std::string_view filePath);
+LocalImage load_image_data(fastgltf::Asset &asset, fastgltf::Image &image, std::filesystem::path parentPath);
+void free_image_data(LocalImage &image); // TODO: Implement and put into LocalScene destructor
+std::optional<std::shared_ptr<LocalScene>> load_scene(VulkanEngine *engine, std::string_view filePath);
