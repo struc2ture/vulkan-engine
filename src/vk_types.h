@@ -133,7 +133,7 @@ struct Node : public IRenderable
         }
     }
 
-    virtual void Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
+    virtual void Draw(const glm::mat4 &topMatrix, DrawContext &ctx) override
     {
         for (auto &c : children)
         {

@@ -88,13 +88,6 @@ struct GLTFMetallic_Roughness
 	MaterialInstance write_material(VkDevice device, MaterialPass pass, const ResourceHeader &resources, DescriptorAllocatorGrowable &descriptorAllocator);
 };
 
-struct MeshNode : public Node
-{
-	std::shared_ptr<MeshAsset> mesh;
-
-	virtual void Draw(const glm::mat4& topMatrix, DrawContext& ctx) override;
-};
-
 struct RenderObject
 {
 	uint32_t indexCount;
@@ -123,6 +116,38 @@ struct EngineStats
 	int render_object_count;
 	float scene_update_time;
 	float mesh_draw_time;
+};
+
+struct MeshNode : public Node
+{
+	std::shared_ptr<MeshAsset> mesh;
+
+	virtual void Draw(const glm::mat4& topMatrix, DrawContext& ctx) override;
+};
+
+class VulkanEngine;
+
+struct DrawScene : public IRenderable
+{
+	std::vector<std::shared_ptr<MeshAsset>> meshes;
+    std::vector<std::shared_ptr<Node>> nodes;
+    std::vector<std::shared_ptr<GLTFImage>> images;
+    std::vector<std::shared_ptr<GLTFMaterial>> materials;
+    std::vector<std::shared_ptr<GLTFSampler>> samplers;
+
+	std::vector<std::shared_ptr<Node>> topNodes;
+
+	DescriptorAllocatorGrowable descriptorPool;
+
+	AllocatedBuffer materialDataBuffer;
+
+	VulkanEngine *creator;
+
+	virtual void Draw(const glm::mat4 &topMatrix, DrawContext &ctx) override;
+
+	~DrawScene() { clearAll(); };
+
+	void clearAll();
 };
 
 class VulkanEngine {
@@ -217,6 +242,7 @@ public:
 	const GLTFMaterial *_inspectedMaterial{ nullptr };
 
 	std::shared_ptr<LoadedScene> _sceneTest;
+	std::shared_ptr<DrawScene> _drawSceneTest;
 
 	void update_scene();
 
@@ -245,6 +271,8 @@ public:
 	AllocatedImage create_image(void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
 	void destroy_image(const AllocatedImage &img);
 	void destroy_buffer(const AllocatedBuffer &buffer);
+
+	std::shared_ptr<DrawScene> uploadLocalScene(std::shared_ptr<LoadedScene> loaded_scene);
 
 private:
 	void init_vulkan();
@@ -278,4 +306,3 @@ private:
 };
 
 bool is_visible(const RenderObject &obj, const glm::mat4 &viewproj);
-

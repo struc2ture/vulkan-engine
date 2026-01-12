@@ -328,6 +328,8 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanEngine *engine, std::s
 
         newMat->data = engine->metalRoughMaterial.write_material(engine->_device, passType, materialResources, file.descriptorPool);
         newMat->params = params;
+
+        // TODO: Forgot to check sentinel
         newMat->colorImage = images[colorImageI];
         newMat->colorSampler = samplers[colorSamplerI];
 
@@ -769,9 +771,6 @@ std::optional<std::shared_ptr<LoadedScene>> load_scene(VulkanEngine *engine, std
 
     for (fastgltf::Material &mat : gltf.materials)
     {
-        std::shared_ptr<LoadedImage> colorImage = scene->images[gltf.textures[mat.pbrData.baseColorTexture.value().textureIndex].imageIndex.value()];
-        std::shared_ptr<LoadedSampler> colorSampler = scene->samplers[gltf.textures[mat.pbrData.baseColorTexture.value().textureIndex].samplerIndex.value()];
-
         MaterialParameters material_params {};
         material_params.colorFactors.r = mat.pbrData.baseColorFactor[0];
         material_params.colorFactors.g = mat.pbrData.baseColorFactor[1];
@@ -783,8 +782,14 @@ std::optional<std::shared_ptr<LoadedScene>> load_scene(VulkanEngine *engine, std
 
         auto newMaterial = std::make_shared<LoadedMaterial>();
         newMaterial->name = mat.name.c_str();
-        newMaterial->colorImage = colorImage;
-        newMaterial->colorSampler = colorSampler;
+        newMaterial->hasColorImage = mat.pbrData.baseColorTexture.has_value();
+        if (newMaterial->hasColorImage)
+        {
+            size_t imageI = gltf.textures[mat.pbrData.baseColorTexture.value().textureIndex].imageIndex.value();
+            size_t samplerI = gltf.textures[mat.pbrData.baseColorTexture.value().textureIndex].samplerIndex.value();
+            newMaterial->colorImage = scene->images[imageI];
+            newMaterial->colorSampler = scene->samplers[samplerI];
+        }
         newMaterial->params = material_params;
         newMaterial->passType = MaterialPass::MainColor; // TODO: How to determine transparent pass
 

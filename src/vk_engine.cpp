@@ -90,6 +90,8 @@ void VulkanEngine::init()
     assert(loadedScene.has_value());
     _sceneTest = loadedScene.value();
 
+    _drawSceneTest = uploadLocalScene(_sceneTest);
+
     set_console_mode(true);
 
     // everything went fine
@@ -808,6 +810,9 @@ void VulkanEngine::cleanup()
 
         loadedScenes.clear();
 
+        //_drawSceneTest->clearAll();
+        _drawSceneTest.reset();
+
         for (int i = 0; i < FRAME_OVERLAP; i++)
         {
             vkDestroyCommandPool(_device, _frames[i]._commandPool,  nullptr);
@@ -1270,6 +1275,43 @@ void MeshNode::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
     Node::Draw(topMatrix, ctx);
 }
 
+void DrawScene::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
+{
+    for (auto &n : topNodes)
+    {
+        n->Draw(topMatrix, ctx);
+    }
+}
+
+void DrawScene::clearAll()
+{
+    VkDevice dv = creator->_device;
+
+    descriptorPool.destroy_pools(dv);
+    creator->destroy_buffer(materialDataBuffer);
+
+    for (auto &mesh : meshes)
+    {
+        creator->destroy_buffer(mesh->meshBuffers.indexBuffer);
+        creator->destroy_buffer(mesh->meshBuffers.vertexBuffer);
+    }
+
+    for (auto &image : images)
+    {
+        if (image->image.image == creator->_errorCheckerboardImage.image)
+        {
+            // don't destroy the default texture
+            continue;
+        }
+        creator->destroy_image(image->image);
+    }
+
+    for (auto &sampler : samplers)
+    {
+        vkDestroySampler(dv, sampler->sampler, nullptr);
+    }
+}
+
 void VulkanEngine::update_scene()
 {
     auto start = std::chrono::system_clock::now();
@@ -1282,7 +1324,9 @@ void VulkanEngine::update_scene()
 
     //loadedScenes["structure"]->Draw(glm::mat4{ 1.0f }, mainDrawContext);
     
-    loadedScenes["struct_quinoa"]->Draw(glm::mat4{ 1.0f }, mainDrawContext);
+    //loadedScenes["struct_quinoa"]->Draw(glm::mat4{ 1.0f }, mainDrawContext);
+
+    _drawSceneTest->Draw(glm::mat4{ 1.0f }, mainDrawContext);
 
     sceneData.view = mainCamera.getViewMatrix();
     sceneData.proj = glm::perspective(glm::radians(70.0f), (float)_windowExtent.width / (float)_windowExtent.height, 10000.0f, 0.1f);
@@ -1700,4 +1744,179 @@ bool is_visible(const RenderObject &obj, const glm::mat4 &viewproj)
     {
         return true;
     }
+}
+
+std::shared_ptr<DrawScene> VulkanEngine::uploadLocalScene(std::shared_ptr<LoadedScene> loadedScene)
+{
+    auto drawScene = std::make_shared<DrawScene>();
+    drawScene->creator = this;
+
+    std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> sizes = {
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3},
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3},
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1}
+    };
+
+    drawScene->descriptorPool.init(_device, loadedScene->materials.size(), sizes);
+
+    std::unordered_map<std::shared_ptr<LoadedSampler>, std::shared_ptr<GLTFSampler>> samplerMap;
+    for (auto &sampler : loadedScene->samplers)
+    {
+        auto drawSampler = std::make_shared<GLTFSampler>();
+
+        VkSamplerCreateInfo samplerCreateInfo = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
+        samplerCreateInfo.maxLod = VK_LOD_CLAMP_NONE;
+        samplerCreateInfo.minLod = 0;
+
+        samplerCreateInfo.magFilter = sampler->magFilter;
+        samplerCreateInfo.minFilter = sampler->minFilter;
+
+        samplerCreateInfo.mipmapMode = sampler->mipmapMode;
+
+        VkSampler vkSampler;
+        vkCreateSampler(_device, &samplerCreateInfo, nullptr, &vkSampler);
+        
+        drawSampler->name = sampler->name;
+        drawSampler->sampler = vkSampler;
+
+        drawScene->samplers.push_back(drawSampler);
+        samplerMap[sampler] = drawSampler;
+    }
+
+    const bool mipmapped = true;
+    std::unordered_map<std::shared_ptr<LoadedImage>, std::shared_ptr<GLTFImage>> imageMap;
+    for (auto &image : loadedScene->images)
+    {
+        auto drawImage = std::make_shared<GLTFImage>();
+        drawImage->name = image->name;
+
+        if (image->data != nullptr)
+        {
+            VkExtent3D imageExtent {};
+            imageExtent.width = image->width;
+            imageExtent.height = image->height;
+            imageExtent.depth = 1;
+
+            drawImage->image = create_image(image->data, imageExtent, image->format, VK_IMAGE_USAGE_SAMPLED_BIT, mipmapped);
+        }
+        else
+        {
+            drawImage->image = _errorCheckerboardImage;
+        }
+        
+        drawScene->images.push_back(drawImage);
+        imageMap[image] = drawImage;
+    }
+
+    drawScene->materialDataBuffer = create_buffer(sizeof(MaterialParameters) * loadedScene->materials.size(), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+    auto mappedParamsPtr = (MaterialParameters *)drawScene->materialDataBuffer.info.pMappedData;
+
+    int dataIndex = 0;
+
+    std::unordered_map<std::shared_ptr<LoadedMaterial>, std::shared_ptr<GLTFMaterial>> materialMap;
+    for (auto &material : loadedScene->materials)
+    {
+        // Copies to GPU buffer
+        mappedParamsPtr[dataIndex] = material->params;
+
+        auto drawMaterial = std::make_shared<GLTFMaterial>();
+        drawMaterial->name = material->name;
+        drawMaterial->params = material->params;
+
+        if (material->hasColorImage)
+        {
+            drawMaterial->colorImage = imageMap[material->colorImage];
+            drawMaterial->colorSampler = samplerMap[material->colorSampler];
+        }
+
+        GLTFMetallic_Roughness::ResourceHeader resourceHeader;
+        resourceHeader.colorImage = _whiteImage;
+        resourceHeader.colorSampler = _defaultSamplerLinear;
+        resourceHeader.metalRoughImage = _whiteImage;
+        resourceHeader.metalRoughSampler = _defaultSamplerLinear;
+
+        if (material->hasColorImage)
+        {
+            resourceHeader.colorImage = drawMaterial->colorImage->image;
+            resourceHeader.colorSampler = drawMaterial->colorSampler->sampler;
+        }
+
+        resourceHeader.dataBuffer = drawScene->materialDataBuffer.buffer;
+        resourceHeader.dataBufferOffset = dataIndex * sizeof(MaterialParameters);
+
+        MaterialInstance materialInstance = metalRoughMaterial.write_material(_device, material->passType, resourceHeader, drawScene->descriptorPool);
+
+        drawMaterial->data = materialInstance;
+
+        drawScene->materials.push_back(drawMaterial);
+        materialMap[material] = drawMaterial;
+    }
+
+    std::unordered_map<std::shared_ptr<LoadedMesh>, std::shared_ptr<MeshAsset>> meshMap;
+    for (auto &mesh : loadedScene->meshes)
+    {
+        GPUMeshBuffers meshBuffers = uploadMesh(mesh->indices, mesh->vertices);
+
+        auto meshAsset = std::make_shared<MeshAsset>();
+        meshAsset->name = mesh->name;
+        meshAsset->meshBuffers = meshBuffers;
+
+        for (auto &primitive : mesh->primitives)
+        {
+            GeoSurface surface {};
+            surface.startIndex = primitive.startIndex;
+            surface.count = primitive.indexCount;
+            surface.bounds = primitive.bounds;
+            surface.material = materialMap[primitive.material];
+            meshAsset->surfaces.push_back(surface);
+        }
+
+        drawScene->meshes.push_back(meshAsset);
+        meshMap[mesh] = meshAsset;
+    }
+
+    std::unordered_map<std::shared_ptr<LoadedNode>, std::shared_ptr<Node>> nodeMap;
+    for (auto &node : loadedScene->nodes)
+    {
+        std::shared_ptr<Node> drawNode;
+        if (node->loaded_mesh != nullptr)
+        {
+            drawNode = std::make_shared<MeshNode>();
+            static_cast<MeshNode *>(drawNode.get())->mesh = meshMap[node->loaded_mesh];
+        }
+        else
+        {
+            drawNode = std::make_shared<Node>();
+        }
+
+        drawNode->node_id = node->node_id;
+        drawNode->name = node->name;
+        drawNode->localTransform = node->localTransform;
+
+        drawScene->nodes.push_back(drawNode);
+        nodeMap[node] = drawNode;
+    }
+
+    for (size_t i = 0; i < loadedScene->nodes.size(); i++)
+    {
+        auto &loadedNode = loadedScene->nodes[i];
+        auto &drawNode = drawScene->nodes[i];
+
+        drawNode->parent = nodeMap[loadedNode->parent.lock()];
+        for (auto &c : loadedNode->children)
+        {
+            drawNode->children.push_back(nodeMap[c]);
+        }
+    }
+
+    for (auto &drawNode : drawScene->nodes)
+    {
+        if (drawNode->parent.lock() == nullptr)
+        {
+            drawScene->topNodes.push_back(drawNode);
+            drawNode->refreshTransform(glm::mat4{ 1.0f });
+        }
+    }
+
+    return drawScene;
 }

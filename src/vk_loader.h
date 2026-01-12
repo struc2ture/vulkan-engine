@@ -102,6 +102,7 @@ struct LoadedSampler
 struct LoadedMaterial
 {
     std::string name;
+    bool hasColorImage;
     std::shared_ptr<LoadedImage> colorImage;
     std::shared_ptr<LoadedSampler> colorSampler;
     MaterialParameters params;
