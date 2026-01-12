@@ -102,8 +102,8 @@ struct LoadedSampler
 struct LoadedMaterial
 {
     std::string name;
-    LoadedImage *colorImage;
-    LoadedSampler *colorSampler;
+    std::shared_ptr<LoadedImage> colorImage;
+    std::shared_ptr<LoadedSampler> colorSampler;
     MaterialParameters params;
     MaterialPass passType;
 };
@@ -113,16 +113,14 @@ struct LoadedPrimitive
     uint32_t startIndex;
     uint32_t indexCount;
     Bounds bounds;
-    LoadedMaterial *material;
+    std::shared_ptr<LoadedMaterial> material;
 };
 
 struct LoadedMesh
 {
     std::string name;
-
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
-
     std::vector<LoadedPrimitive> primitives;
 };
 
@@ -131,27 +129,26 @@ struct LoadedNode
     std::string name;
     uint64_t node_id;
 
-    LoadedNode *parent;
-    std::vector<LoadedNode *> children;
+    std::weak_ptr<LoadedNode> parent;
+    std::vector<std::shared_ptr<LoadedNode>> children;
 
     glm::mat4 localTransform;
 
-    LoadedMesh *loaded_mesh;
+    std::shared_ptr<LoadedMesh> loaded_mesh;
 };
 
 struct LoadedScene
 {
     std::string path;
 
-    std::vector<LoadedMesh> meshes;
-    std::vector<LoadedNode> nodes;
-    std::vector<LoadedImage> images;
-    std::vector<LoadedSampler> samplers;
-    std::vector<LoadedMaterial> materials;
-
-    std::vector<LoadedNode *> topNodes;
+    std::vector<std::shared_ptr<LoadedMesh>> meshes;
+    std::vector<std::shared_ptr<LoadedNode>> nodes;
+    std::vector<std::shared_ptr<LoadedImage>> images;
+    std::vector<std::shared_ptr<LoadedSampler>> samplers;
+    std::vector<std::shared_ptr<LoadedMaterial>> materials;
+    std::vector<std::shared_ptr<LoadedNode>> topNodes;
 };
 
 LoadedImage load_image_data(fastgltf::Asset &asset, fastgltf::Image &image, std::filesystem::path parentPath);
 void free_image_data(LoadedImage &image); // TODO: Implement and put into LoadedScene destructor
-std::optional<LoadedScene> load_scene(VulkanEngine *engine, std::string_view filePath);
+std::optional<std::shared_ptr<LoadedScene>> load_scene(VulkanEngine *engine, std::string_view filePath);

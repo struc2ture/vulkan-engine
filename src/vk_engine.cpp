@@ -1355,7 +1355,7 @@ void VulkanEngine::imgui_uis()
     }
     ImGui::End();
 
-    imgui_loaded_scene_inspector(&_sceneTest);
+    imgui_loaded_scene_inspector(_sceneTest);
 
     // some imgui ui to test
     ImGui::ShowDemoWindow();
@@ -1517,19 +1517,139 @@ void VulkanEngine::imgui_material_inspector(const GLTFMaterial *material)
     ImGui::End();
 }
 
-void VulkanEngine::imgui_loaded_scene_inspector(const LoadedScene *scene)
+void VulkanEngine::imgui_loaded_scene_inspector(std::shared_ptr<LoadedScene> scene)
 {
-    assert(scene != nullptr);
     if (ImGui::Begin("Loaded Scene Inspector"))
     {
         ImGui::Text("Path: %s", scene->path.c_str());
         ImGui::Text("");
 
-        ImGui::Text("Meshes: %d", scene->meshes.size());
-        ImGui::Text("Materials: %d", scene->materials.size());
-        ImGui::Text("Images: %d", scene->images.size());
-        ImGui::Text("Samplers: %d", scene->samplers.size());
-        ImGui::Text("Nodes: %d", scene->nodes.size());
+        if (ImGui::TreeNode("Meshes", "Meshes: %d", scene->meshes.size()))
+        {
+            for (auto &mesh : scene->meshes)
+            {
+                ImGui::PushID(mesh.get());
+                if (ImGui::TreeNode("", "%s", mesh->name.c_str()))
+                {
+                    int vertI = 0;
+                    if (ImGui::TreeNode("Vertices", "Vertices (%d)", mesh->vertices.size()))
+                    {
+                        for (auto &vertex : mesh->vertices)
+                        {
+                            ImGui::Text("%d: %.1f, %.1f, %.1f", vertI++, vertex.position.x, vertex.position.y, vertex.position.z);
+                        }
+                        ImGui::TreePop();
+                    }
+                    if (ImGui::TreeNode("Indices", "Indices (%d)", mesh->indices.size()))
+                    {
+                        for (auto &index : mesh->indices)
+                        {
+                            ImGui::Text("%d", index);
+                        }
+                        ImGui::TreePop();
+                    }
+                    if (ImGui::TreeNode("Primitives", "Primitives (%d)", mesh->primitives.size()))
+                    {
+                        for (auto &primitive : mesh->primitives)
+                        {
+                            ImGui::Text("%d, %d; %.1f, %.1f, %.1f", primitive.startIndex, primitive.indexCount, primitive.bounds.origin.x, primitive.bounds.origin.y, primitive.bounds.origin.z);
+                        }
+                        ImGui::TreePop();
+                    }
+                    ImGui::TreePop();
+                }
+                ImGui::PopID();
+            }
+            ImGui::TreePop();
+        }
+        if (ImGui::TreeNode("Images", "Images: %d", scene->images.size()))
+        {
+            for (auto &image : scene->images)
+            {
+                ImGui::PushID(image.get());
+                if (ImGui::TreeNode("", "%s", image->name.c_str()))
+                {
+                    ImGui::Text("%d x %d px", image->width, image->height);
+                    if (image->path.has_value())
+                    {
+                        ImGui::Text("File at %s", image->path.value().generic_string().c_str());
+                    }
+                    else
+                    {
+                        ImGui::Text("File embedded");
+                    }
+                    ImGui::TreePop();
+                }
+                ImGui::PopID();
+            }
+            ImGui::TreePop();
+        }
+        if (ImGui::TreeNode("Samplers", "Samplers: %d", scene->samplers.size()))
+        {
+            for (auto &sampler : scene->samplers)
+            {
+                ImGui::PushID(sampler.get());
+                if (ImGui::TreeNode("", "Sampler %s(%p)", sampler->name.c_str(), sampler.get()))
+                {
+                    ImGui::Text("Mag Filter: %s", string_VkFilter(sampler->magFilter));
+                    ImGui::Text("Min Filter: %s", string_VkFilter(sampler->minFilter));
+                    ImGui::Text("Mipmap Mode: %s", string_VkSamplerMipmapMode(sampler->mipmapMode));
+                    
+                    ImGui::TreePop();
+                }
+                ImGui::PopID();
+            }
+            ImGui::TreePop();
+        }
+        if (ImGui::TreeNode("Materials", "Materials: %d", scene->materials.size()))
+        {
+            for (auto &material : scene->materials)
+            {
+                ImGui::PushID(material.get());
+                if (ImGui::TreeNode("", "%s", material->name.c_str()))
+                {
+                    ImGui::Text("Color image: %s", material->colorImage->name.c_str());
+                    ImGui::Text("Color sampler: %p", material->colorSampler.get());
+                    ImGui::Text("Color factors: %.1f, %.1f, %.1f, %.1f", material->params.colorFactors.r, material->params.colorFactors.g, material->params.colorFactors.b, material->params.colorFactors.a);
+                    ImGui::Text("Metallic: %.3f", material->params.metal_rough_factors.r);
+                    ImGui::Text("Rougness: %.3f", material->params.metal_rough_factors.g);
+                    ImGui::Text("Pass: %s", (material->passType == MaterialPass::MainColor) ? "Opaque" : "Transparent");
+                    ImGui::TreePop();
+                }
+                ImGui::PopID();
+            }
+            ImGui::TreePop();
+        }
+
+        if (ImGui::TreeNode("Nodes", "Nodes: %d", scene->nodes.size()))
+        {
+            for (auto &node : scene->nodes)
+            {
+                ImGui::PushID(node.get());
+                if (ImGui::TreeNode("", "%s[%llu]", node->name.c_str(), node->node_id))
+                {
+                    auto parent = node->parent.lock();
+                    if (parent != nullptr) ImGui::Text("Parent ID: %s[%llu]", parent->name.c_str(), parent->node_id);
+                    else ImGui::Text("Parent ID: none");
+                    
+                    if (ImGui::TreeNode("Children", "Children: %d", node->children.size()))
+                    {
+                        for (auto &child : node->children)
+                        {
+                            ImGui::Text("%s[%llu]", child->name.c_str(), child->node_id);
+                        }
+                        ImGui::TreePop();
+                    }
+                    
+                    if (node->loaded_mesh != nullptr) ImGui::Text("Mesh: %s", node->loaded_mesh->name.c_str());
+                    else ImGui::Text("Mesh: none");
+
+                    ImGui::TreePop();
+                }
+                ImGui::PopID();
+            }
+            ImGui::TreePop();
+        }
     }
     ImGui::End();
 }

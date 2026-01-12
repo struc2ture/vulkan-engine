@@ -216,7 +216,7 @@ public:
 	bool _consoleMode;
 	const GLTFMaterial *_inspectedMaterial{ nullptr };
 
-	LoadedScene _sceneTest;
+	std::shared_ptr<LoadedScene> _sceneTest;
 
 	void update_scene();
 
@@ -272,7 +272,7 @@ private:
 	void imgui_node_tree_node(Node *node);
 	void imgui_gltf_window(std::string name, const LoadedGLTF *loadedGLTF);
 	void imgui_material_inspector(const GLTFMaterial *material);
-	void imgui_loaded_scene_inspector(const LoadedScene *scene);
+	void imgui_loaded_scene_inspector(std::shared_ptr<LoadedScene> scene);
 
 	void set_console_mode(bool state);
 };
