@@ -86,11 +86,15 @@ void VulkanEngine::init()
 
     loadedScenes["struct_quinoa"] = *quinoaFile;
 
-    auto loadedScene = load_scene(this, "..\\..\\assets\\struct_quinoa\\struct_quinoa.gltf");
+    //auto loadedScene = load_scene(this, "..\\..\\assets\\struct_quinoa\\struct_quinoa.gltf");
+    auto loadedScene = load_scene(this, "../../assets/struct_quinoa/struct_quinoa.gltf");
     assert(loadedScene.has_value());
-    _sceneTest = loadedScene.value();
+    //_sceneTest = loadedScene.value();
 
-    _drawSceneTest = uploadLocalScene(_sceneTest);
+    //_drawSceneTest = uploadLocalScene(_sceneTest);
+
+    _localScenes.push_back(loadedScene.value());
+    _drawScenes[_localScenes[0]] = uploadLocalScene(_localScenes[0]);
 
     set_console_mode(true);
 
@@ -810,8 +814,10 @@ void VulkanEngine::cleanup()
 
         loadedScenes.clear();
 
-        //_drawSceneTest->clearAll();
+        //_drawSceneTest->clearGPUData();
         _drawSceneTest.reset();
+        _localScenes.clear();
+        _drawScenes.clear();
 
         for (int i = 0; i < FRAME_OVERLAP; i++)
         {
@@ -1283,7 +1289,7 @@ void DrawScene::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
     }
 }
 
-void DrawScene::clearAll()
+void DrawScene::clearGPUData()
 {
     VkDevice dv = creator->_device;
 
@@ -1326,7 +1332,11 @@ void VulkanEngine::update_scene()
     
     //loadedScenes["struct_quinoa"]->Draw(glm::mat4{ 1.0f }, mainDrawContext);
 
-    _drawSceneTest->Draw(glm::mat4{ 1.0f }, mainDrawContext);
+    //_drawSceneTest->Draw(glm::mat4{ 1.0f }, mainDrawContext);
+    for (auto &[localScene, drawScene] : _drawScenes)
+    {
+        drawScene->Draw(glm::mat4{ 1.0f }, mainDrawContext);
+    }
 
     sceneData.view = mainCamera.getViewMatrix();
     sceneData.proj = glm::perspective(glm::radians(70.0f), (float)_windowExtent.width / (float)_windowExtent.height, 10000.0f, 0.1f);
@@ -1377,10 +1387,10 @@ void VulkanEngine::imgui_uis()
 
     //imgui_gltf_window("struct_quinoa", loadedScenes["struct_quinoa"].get());
     
-    if (_inspectedMaterial != nullptr)
-    {
-        imgui_material_inspector(_inspectedMaterial);
-    }
+    //if (_inspectedMaterial != nullptr)
+    //{
+    //    imgui_material_inspector(_inspectedMaterial);
+    //}
 
     if (ImGui::Begin("Render Objects"))
     {
@@ -1399,10 +1409,78 @@ void VulkanEngine::imgui_uis()
     }
     ImGui::End();
 
-    imgui_local_scene_inspector(_sceneTest);
+    imgui_scene_list();
+
+    auto inspectedSceneSharedPtr = _inspectedScene.lock();
+    if (inspectedSceneSharedPtr != nullptr)
+    {
+        imgui_local_scene_inspector(inspectedSceneSharedPtr);
+    }
 
     // some imgui ui to test
     ImGui::ShowDemoWindow();
+}
+
+void VulkanEngine::imgui_scene_list()
+{
+    static char load_file_buffer[256] = {};
+    static char new_scene_buffer[256] = {};
+
+    if (ImGui::Begin("Scene List"))
+    {
+        for (auto it = _localScenes.begin(); it != _localScenes.end(); it++)
+        {
+            auto &scene = *it;
+            ImGui::PushID(scene.get());
+            ImGui::Text("%s", scene->name.c_str());
+            ImGui::SameLine();
+            if (ImGui::Button("Inspect"))
+            {
+                if (_inspectedScene.lock() == scene)
+                {
+                    _inspectedScene.reset();
+                }
+                else
+                {
+                    _inspectedScene = scene;
+                }
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Delete"))
+            {
+                _drawScenes.erase(scene);
+                //scene.reset();
+                _localScenes.erase(it);
+                ImGui::PopID();
+                break;
+            }
+            ImGui::PopID();
+        }
+
+        ImGui::InputText("##loadFileInput", load_file_buffer, 256);
+        ImGui::SameLine();
+        if (ImGui::Button("Load File"))
+        {
+            auto loadedScene = load_scene(this, load_file_buffer);
+            if (loadedScene.has_value())
+            {
+                _localScenes.push_back(loadedScene.value());
+                _drawScenes[_localScenes.back()] = uploadLocalScene(_localScenes.back());
+            }
+            else
+            {
+                fmt::println("Failed to load file at {}", load_file_buffer);
+            }
+        }
+        ImGui::InputText("##newSceneInput", new_scene_buffer, 256);
+        ImGui::SameLine();
+        if (ImGui::Button("Add new"))
+        {
+            _localScenes.push_back(new_local_scene(this, new_scene_buffer));
+            //_localScenes.push_back();
+        }
+    }
+    ImGui::End();
 }
 
 void VulkanEngine::imgui_node_tree_window()
@@ -1580,7 +1658,10 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
                     {
                         for (auto &vertex : mesh->vertices)
                         {
-                            ImGui::Text("%d: %.1f, %.1f, %.1f", vertI++, vertex.position.x, vertex.position.y, vertex.position.z);
+                            //ImGui::Text("%d: %.1f, %.1f, %.1f", vertI++, vertex.position.x, vertex.position.y, vertex.position.z);
+                            ImGui::PushID(vertI++);
+                            ImGui::InputFloat3("", &vertex.position.x);
+                            ImGui::PopID();
                         }
                         ImGui::TreePop();
                     }
@@ -1709,6 +1790,12 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
                 ImGui::PopID();
             }
             ImGui::TreePop();
+        }
+
+        if (ImGui::Button("Upload scene"))
+        {
+            //_drawSceneTest;
+            _drawSceneTest = uploadLocalScene(_sceneTest);
         }
     }
     ImGui::End();

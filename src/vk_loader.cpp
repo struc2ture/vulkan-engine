@@ -706,8 +706,11 @@ std::optional<std::shared_ptr<LocalScene>> load_scene(VulkanEngine *engine, std:
 {
     fmt::println("Loading Scene: {}", filePath);
 
+    std::filesystem::path path = filePath;
+
     auto scene = std::make_shared<LocalScene>();
     scene->path = filePath.data();
+    scene->name = path.filename().generic_string();
 
     fastgltf::Parser parser {};
 
@@ -718,7 +721,6 @@ std::optional<std::shared_ptr<LocalScene>> load_scene(VulkanEngine *engine, std:
 
     fastgltf::Asset gltf;
 
-    std::filesystem::path path = filePath;
 
     auto type = fastgltf::determineGltfFileType(&data);
     if (type == fastgltf::GltfType::glTF)
@@ -965,5 +967,12 @@ std::optional<std::shared_ptr<LocalScene>> load_scene(VulkanEngine *engine, std:
         }
     }
 
+    return scene;
+}
+
+std::shared_ptr<LocalScene> new_local_scene(VulkanEngine *engine, std::string name)
+{
+    auto scene = std::make_shared<LocalScene>();
+    scene->name = name;
     return scene;
 }

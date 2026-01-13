@@ -145,9 +145,9 @@ struct DrawScene : public IRenderable
 
 	virtual void Draw(const glm::mat4 &topMatrix, DrawContext &ctx) override;
 
-	~DrawScene() { clearAll(); };
+	~DrawScene() { clearGPUData(); };
 
-	void clearAll();
+	void clearGPUData();
 };
 
 class VulkanEngine {
@@ -244,6 +244,10 @@ public:
 	std::shared_ptr<LocalScene> _sceneTest;
 	std::shared_ptr<DrawScene> _drawSceneTest;
 
+	std::vector<std::shared_ptr<LocalScene>> _localScenes;
+	std::unordered_map<std::shared_ptr<LocalScene>, std::shared_ptr<DrawScene>> _drawScenes;
+	std::weak_ptr<LocalScene> _inspectedScene;
+
 	void update_scene();
 
 	static VulkanEngine& Get();
@@ -300,6 +304,7 @@ private:
 	void imgui_node_tree_node(Node *node);
 	void imgui_gltf_window(std::string name, const LoadedGLTF *loadedGLTF);
 	void imgui_material_inspector(const GLTFMaterial *material);
+	void imgui_scene_list();
 	void imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene);
 
 	void set_console_mode(bool state);

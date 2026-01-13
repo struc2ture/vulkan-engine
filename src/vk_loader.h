@@ -141,6 +141,7 @@ struct LocalNode
 struct LocalScene
 {
     std::string path;
+    std::string name;
 
     std::vector<std::shared_ptr<LocalMesh>> meshes;
     std::vector<std::shared_ptr<LocalNode>> nodes;
@@ -153,3 +154,4 @@ struct LocalScene
 LocalImage load_image_data(fastgltf::Asset &asset, fastgltf::Image &image, std::filesystem::path parentPath);
 void free_image_data(LocalImage &image); // TODO: Implement and put into LocalScene destructor
 std::optional<std::shared_ptr<LocalScene>> load_scene(VulkanEngine *engine, std::string_view filePath);
+std::shared_ptr<LocalScene> new_local_scene(VulkanEngine *engine, std::string name);
