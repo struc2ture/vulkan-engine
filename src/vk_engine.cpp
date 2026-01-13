@@ -1794,8 +1794,7 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
 
         if (ImGui::Button("Upload scene"))
         {
-            //_drawSceneTest;
-            _drawSceneTest = uploadLocalScene(_sceneTest);
+            _drawScenes[scene] = uploadLocalScene(scene);
         }
     }
     ImGui::End();

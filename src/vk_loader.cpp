@@ -891,23 +891,24 @@ std::optional<std::shared_ptr<LocalScene>> load_scene(VulkanEngine *engine, std:
                 newPrimitive.material = scene->materials[0];
             }
 
-            glm::vec3 minpos = vertices[initial_vtx].position;
-            glm::vec3 maxpos = vertices[initial_vtx].position;
-            for (int i = initial_vtx; i < vertices.size(); i++)
-            {
-                minpos = glm::min(minpos, vertices[i].position);
-                maxpos = glm::max(maxpos, vertices[i].position);
-            }
+            //glm::vec3 minpos = vertices[initial_vtx].position;
+            //glm::vec3 maxpos = vertices[initial_vtx].position;
+            //for (int i = initial_vtx; i < vertices.size(); i++)
+            //{
+            //    minpos = glm::min(minpos, vertices[i].position);
+            //    maxpos = glm::max(maxpos, vertices[i].position);
+            //}
 
-            newPrimitive.bounds.origin = (maxpos + minpos) / 2.0f;
-            newPrimitive.bounds.extents = (maxpos - minpos) / 2.0f;
-            newPrimitive.bounds.sphereRadius = glm::length(newPrimitive.bounds.extents);
+            //newPrimitive.bounds.origin = (maxpos + minpos) / 2.0f;
+            //newPrimitive.bounds.extents = (maxpos - minpos) / 2.0f;
+            //newPrimitive.bounds.sphereRadius = glm::length(newPrimitive.bounds.extents);
+            newMesh->vertices = vertices;
+            newMesh->indices = indices;
+
+            newPrimitive.bounds = calculate_bounds(*newMesh, newPrimitive);
 
             newMesh->primitives.push_back(newPrimitive);
         }
-
-        newMesh->vertices = vertices;
-        newMesh->indices = indices;
 
         scene->meshes.push_back(newMesh);
     }
@@ -974,5 +975,108 @@ std::shared_ptr<LocalScene> new_local_scene(VulkanEngine *engine, std::string na
 {
     auto scene = std::make_shared<LocalScene>();
     scene->name = name;
+
+    // material
+    {
+        auto newMaterial = std::make_shared<LocalMaterial>();
+        newMaterial->name = "Box Material";
+        newMaterial->hasColorImage = false;
+
+        MaterialParameters material_params {};
+        material_params.colorFactors.r = 1.0f;
+        material_params.colorFactors.g = 1.0f;
+        material_params.colorFactors.b = 1.0f;
+        material_params.colorFactors.a = 1.0f;
+
+        material_params.metal_rough_factors.r = 0.0f;
+        material_params.metal_rough_factors.g = 1.0f;
+
+        newMaterial->params = material_params;
+
+        newMaterial->passType = MaterialPass::MainColor;
+
+        scene->materials.push_back(newMaterial);
+    }
+
+    // mesh
+    {
+        auto mesh = std::make_shared<LocalMesh>();
+        mesh->name = "Cube";
+        mesh->indices;
+
+        mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, -1.0, -1.0), .uv_x = 0.0, .normal = glm::vec3(1.0, 0.0, 0.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+        mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, 1.0, -1.0), .uv_x = 1.0, .normal = glm::vec3(1.0, 0.0, 0.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+        mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, 1.0, 1.0), .uv_x = 1.0, .normal = glm::vec3(1.0, 0.0, 0.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+        mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, -1.0, 1.0), .uv_x = 0.0, .normal = glm::vec3(1.0, 0.0, 0.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+        mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, -1.0, 1.0), .uv_x = 0.0, .normal = glm::vec3(-1.0, 0.0, 0.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+        mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, 1.0, 1.0), .uv_x = 1.0, .normal = glm::vec3(-1.0, 0.0, 0.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+        mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, 1.0, -1.0), .uv_x = 1.0, .normal = glm::vec3(-1.0, 0.0, 0.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+        mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, -1.0, -1.0), .uv_x = 0.0, .normal = glm::vec3(-1.0, 0.0, 0.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+        mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, 1.0, -1.0), .uv_x = 0.0, .normal = glm::vec3(0.0, 1.0, 0.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+        mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, 1.0, 1.0), .uv_x = 0.0, .normal = glm::vec3(0.0, 1.0, 0.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+        mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, 1.0, 1.0), .uv_x = 1.0, .normal = glm::vec3(0.0, 1.0, 0.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+        mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, 1.0, -1.0), .uv_x = 1.0, .normal = glm::vec3(0.0, 1.0, 0.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+        mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, -1.0, 1.0), .uv_x = 0.0, .normal = glm::vec3(0.0, -1.0, 0.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+        mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, -1.0, -1.0), .uv_x = 0.0, .normal = glm::vec3(0.0, -1.0, 0.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+        mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, -1.0, -1.0), .uv_x = 1.0, .normal = glm::vec3(0.0, -1.0, 0.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+        mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, -1.0, 1.0), .uv_x = 1.0, .normal = glm::vec3(0.0, -1.0, 0.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+        mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, -1.0, 1.0), .uv_x = 0.0, .normal = glm::vec3(0.0, 0.0, 1.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+        mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, 1.0, 1.0), .uv_x = 0.0, .normal = glm::vec3(0.0, 0.0, 1.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+        mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, 1.0, 1.0), .uv_x = 1.0, .normal = glm::vec3(0.0, 0.0, 1.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+        mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, -1.0, 1.0), .uv_x = 1.0, .normal = glm::vec3(0.0, 0.0, 1.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+        mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, -1.0, -1.0), .uv_x = 0.0, .normal = glm::vec3(0.0, 0.0, -1.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+        mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, 1.0, -1.0), .uv_x = 0.0, .normal = glm::vec3(0.0, 0.0, -1.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+        mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, 1.0, -1.0), .uv_x = 1.0, .normal = glm::vec3(0.0, 0.0, -1.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+        mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, -1.0, -1.0), .uv_x = 1.0, .normal = glm::vec3(0.0, 0.0, -1.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+        mesh->indices = {
+            0,1,2,    0,2,3,
+            4,5,6,    4,6,7,
+            8,9,10,   8,10,11,
+            12,13,14, 12,14,15,
+            16,17,18, 16,18,19,
+            20,21,22, 20,22,23
+        };
+
+        LocalPrimitive primitive {};
+        primitive.material = scene->materials[0];
+        primitive.startIndex = 0;
+        primitive.indexCount = mesh->indices.size();
+        primitive.bounds = calculate_bounds(*mesh, primitive);
+
+        mesh->primitives.push_back(primitive);
+
+        scene->meshes.push_back(mesh);
+    }
+
+    // node
+    {
+        auto node = std::make_shared<LocalNode>();
+        node->name = "Box";
+        node->node_id = 0;
+        node->loaded_mesh = scene->meshes[0];
+        node->localTransform = glm::mat4 { 1.0f };
+
+        scene->nodes.push_back(node);
+        scene->topNodes.push_back(node);
+    }
+
     return scene;
+}
+
+Bounds calculate_bounds(const LocalMesh &mesh, const LocalPrimitive &primitive)
+{
+    glm::vec3 minpos = mesh.vertices[mesh.indices[primitive.startIndex]].position;
+    glm::vec3 maxpos = minpos;
+    for (int i = primitive.startIndex; i < primitive.startIndex + primitive.indexCount; i++)
+    {
+        minpos = glm::min(minpos, mesh.vertices[mesh.indices[i]].position);
+        maxpos = glm::max(maxpos, mesh.vertices[mesh.indices[i]].position);
+    }
+
+    Bounds bounds {};
+    bounds.origin = (maxpos + minpos) / 2.0f;
+    bounds.extents = (maxpos - minpos) / 2.0f;
+    bounds.sphereRadius = glm::length(bounds.extents);
+
+    return bounds;
 }
