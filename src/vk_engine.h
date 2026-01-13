@@ -258,6 +258,14 @@ public:
 
 	std::unordered_map<std::shared_ptr<LocalImage>, std::shared_ptr<ImguiPreviewTexture>> _imguiPreviewTextures;
 
+	bool _imguiBackgroundWindow{ false };
+	bool _imguiStatsWindow{ false };
+	bool _imguiSceneListWindow{ true };
+	bool _imguiDemoWindow{ false };
+	bool _imguiRenderObjectsWindow{ false };
+	bool _imguiLocalSceneInspectorWindow{ true };
+	bool _imguiCameraInspectorWindow{ false };
+
 	void update_scene();
 
 	static VulkanEngine& Get();
@@ -286,7 +294,7 @@ public:
 	void destroy_image(const AllocatedImage &img);
 	void destroy_buffer(const AllocatedBuffer &buffer);
 
-	std::shared_ptr<DrawScene> uploadLocalScene(std::shared_ptr<LocalScene> loaded_scene);
+	std::shared_ptr<DrawScene> upload_local_scene(std::shared_ptr<LocalScene> loaded_scene);
 
 private:
 	void init_vulkan();
@@ -310,10 +318,9 @@ private:
 	void resize_swapchain();
 
 	void imgui_uis();
-	void imgui_node_tree_window();
-	void imgui_node_tree_node(Node *node);
-	void imgui_gltf_window(std::string name, const LoadedGLTF *loadedGLTF);
-	void imgui_material_inspector(const GLTFMaterial *material);
+	void imgui_background();
+	void imgui_stats();
+	void imgui_render_objects();
 	void imgui_scene_list();
 	void imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene);
 	void imgui_camera_inspector();

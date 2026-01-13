@@ -91,10 +91,10 @@ void VulkanEngine::init()
     assert(loadedScene.has_value());
     //_sceneTest = loadedScene.value();
 
-    //_drawSceneTest = uploadLocalScene(_sceneTest);
+    //_drawSceneTest = upload_local_scene(_sceneTest);
 
     _localScenes.push_back(loadedScene.value());
-    _drawScenes[_localScenes[0]] = uploadLocalScene(_localScenes[0]);
+    _drawScenes[_localScenes[0]] = upload_local_scene(_localScenes[0]);
 
     set_console_mode(true);
 
@@ -1362,7 +1362,47 @@ void VulkanEngine::update_scene()
 
 void VulkanEngine::imgui_uis()
 {
-    if (ImGui::Begin("background"))
+    if (_imguiBackgroundWindow)
+        imgui_background();
+
+    if (_imguiStatsWindow)
+        imgui_stats();
+
+    if (_imguiRenderObjectsWindow)
+        imgui_render_objects();
+
+    if (_imguiSceneListWindow)
+        imgui_scene_list();
+
+    if (_imguiLocalSceneInspectorWindow)
+        imgui_local_scene_inspector(_inspectedScene.lock());
+
+    if (_imguiCameraInspectorWindow)
+        imgui_camera_inspector();
+
+    if (_imguiDemoWindow)
+        ImGui::ShowDemoWindow(&_imguiDemoWindow);
+
+    if (ImGui::BeginMainMenuBar())
+    {
+        if (ImGui::BeginMenu("Windows"))
+        {
+            ImGui::MenuItem("Background", "", &_imguiBackgroundWindow);
+            ImGui::MenuItem("Stats", "", &_imguiStatsWindow);
+            ImGui::MenuItem("Render Objects", "", &_imguiRenderObjectsWindow);
+            ImGui::MenuItem("Scene List", "", &_imguiSceneListWindow);
+            ImGui::MenuItem("Local Scene Inspector", "", &_imguiLocalSceneInspectorWindow);
+            ImGui::MenuItem("Camera Inspector", "", &_imguiCameraInspectorWindow);
+            ImGui::MenuItem("Imgui Demo Window", "", &_imguiDemoWindow);
+            ImGui::EndMenu();
+        }
+        ImGui::EndMainMenuBar();
+    }
+}
+
+void VulkanEngine::imgui_background()
+{
+    if (ImGui::Begin("Background", &_imguiBackgroundWindow))
     {
         ImGui::SliderFloat("Render Scale", &renderScale, 0.3f, 1.0f);
 
@@ -1377,8 +1417,11 @@ void VulkanEngine::imgui_uis()
         ImGui::InputFloat4("data4", (float *) &selected.data.data4);
     }
     ImGui::End();
+}
 
-    if (ImGui::Begin("Stats"))
+void VulkanEngine::imgui_stats()
+{
+    if (ImGui::Begin("Stats", &_imguiStatsWindow))
     {
         ImGui::Text("frametime %f ms", stats.frametime);
         ImGui::Text("draw time %f ms", stats.mesh_draw_time);
@@ -1388,17 +1431,11 @@ void VulkanEngine::imgui_uis()
         ImGui::Text("render objects %i", stats.render_object_count);
     }
     ImGui::End();
+}
 
-    //imgui_node_tree_window();
-
-    //imgui_gltf_window("struct_quinoa", loadedScenes["struct_quinoa"].get());
-    
-    //if (_inspectedMaterial != nullptr)
-    //{
-    //    imgui_material_inspector(_inspectedMaterial);
-    //}
-
-    if (ImGui::Begin("Render Objects"))
+void VulkanEngine::imgui_render_objects()
+{
+    if (ImGui::Begin("Render Objects", &_imguiRenderObjectsWindow))
     {
         ImGui::Text("Opaque Surfaces:");
         for (auto &s : mainDrawContext.opaqueSurfaces)
@@ -1411,22 +1448,8 @@ void VulkanEngine::imgui_uis()
         {
             ImGui::Text("For %s", s.mesh->name.c_str());
         }
-
     }
     ImGui::End();
-
-    imgui_scene_list();
-
-    auto inspectedSceneSharedPtr = _inspectedScene.lock();
-    if (inspectedSceneSharedPtr != nullptr)
-    {
-        imgui_local_scene_inspector(inspectedSceneSharedPtr);
-    }
-
-    imgui_camera_inspector();
-
-    // some imgui ui to test
-    ImGui::ShowDemoWindow();
 }
 
 void VulkanEngine::imgui_scene_list()
@@ -1434,7 +1457,7 @@ void VulkanEngine::imgui_scene_list()
     static char load_file_buffer[256] = {};
     static char new_scene_buffer[256] = {};
 
-    if (ImGui::Begin("Scene List"))
+    if (ImGui::Begin("Scene List", &_imguiSceneListWindow))
     {
         for (auto it = _localScenes.begin(); it != _localScenes.end(); it++)
         {
@@ -1473,7 +1496,7 @@ void VulkanEngine::imgui_scene_list()
             if (loadedScene.has_value())
             {
                 _localScenes.push_back(loadedScene.value());
-                _drawScenes[_localScenes.back()] = uploadLocalScene(_localScenes.back());
+                _drawScenes[_localScenes.back()] = upload_local_scene(_localScenes.back());
             }
             else
             {
@@ -1485,173 +1508,31 @@ void VulkanEngine::imgui_scene_list()
         if (ImGui::Button("Add new"))
         {
             _localScenes.push_back(new_local_scene(this, new_scene_buffer));
-            //_localScenes.push_back();
         }
-    }
-    ImGui::End();
-}
-
-void VulkanEngine::imgui_node_tree_window()
-{
-    if (ImGui::Begin("Node Tree"))
-    {
-        for (auto &scene : loadedScenes)
-        {
-            if (ImGui::TreeNode(scene.first.c_str()))
-            {
-                for (int i = 0; i < scene.second->topNodes.size(); i++)
-                {
-                    imgui_node_tree_node(scene.second->topNodes[i].get());
-                }
-                ImGui::TreePop();
-            }
-        }
-    }
-    ImGui::End();
-}
-
-void VulkanEngine::imgui_node_tree_node(Node *node)
-{
-    assert(node != nullptr);
-
-    ImGui::PushID(node->node_id);
-
-    if (ImGui::TreeNode("", node->name.c_str()))
-    {
-        for (auto &child : node->children)
-        {
-            imgui_node_tree_node(child.get());
-        }
-        
-        if (auto *meshNode = dynamic_cast<MeshNode *>(node))
-        {
-            ImGui::Indent();
-            ImGui::Text("%s", meshNode->mesh->name.c_str());
-            ImGui::Unindent();
-        }
-
-        ImGui::TreePop();
-    }
-
-    ImGui::PopID();
-}
-
-void VulkanEngine::imgui_gltf_window(std::string name, const LoadedGLTF *loadedGLTF)
-{
-    ImGui::PushID(name.c_str());
-
-    if (ImGui::Begin("LoadedGLTF View"))
-    {
-        ImGui::Text(name.c_str());
-        ImGui::Text("");
-
-        if (ImGui::TreeNode("Meshes"))
-        {
-            int item_id = 0;
-            ImGui::Indent();
-            for (auto &mesh : loadedGLTF->meshes)
-            {
-                ImGui::PushID(item_id++);
-                ImGui::Text(mesh.first.c_str());
-                ImGui::PopID();
-            }
-            ImGui::Unindent();
-            ImGui::TreePop();
-        }
-
-        if (ImGui::TreeNode("Nodes"))
-        {
-            int item_id = 0;
-            ImGui::Indent();
-            for (auto &node : loadedGLTF->nodes)
-            {
-                ImGui::PushID(item_id++);
-                ImGui::Text(node.first.c_str());
-                ImGui::PopID();
-            }
-            ImGui::Unindent();
-            ImGui::TreePop();
-        }
-
-        if (ImGui::TreeNode("Materials"))
-        {
-            int item_id = 0;
-            ImGui::Indent();
-            for (auto &material : loadedGLTF->materials)
-            {
-                ImGui::PushID(item_id++);
-                ImGui::Text(material.first.c_str());
-                ImGui::SameLine();
-                if (ImGui::Button("Inspect"))
-                {
-                    const GLTFMaterial *thisMaterial = material.second.get();
-                    _inspectedMaterial = (_inspectedMaterial != thisMaterial) ? thisMaterial : nullptr;
-                }
-                ImGui::PopID();
-            }
-            ImGui::Unindent();
-            ImGui::TreePop();
-        }
-
-        if (ImGui::TreeNode("Images"))
-        {
-            int item_id = 0;
-            ImGui::Indent();
-            for (auto &image : loadedGLTF->images)
-            {
-                ImGui::PushID(item_id++);
-                ImGui::Text(image.first.c_str());
-                ImGui::PopID();
-            }
-            ImGui::Unindent();
-            ImGui::TreePop();
-        }
-
-
-        if (ImGui::TreeNode("Samplers"))
-        {
-            int item_id = 0;
-            ImGui::Indent();
-            for (auto &sampler : loadedGLTF->samplers)
-            {
-                ImGui::PushID(item_id++);
-                ImGui::Text(sampler.first.c_str());
-                ImGui::PopID();
-            }
-            ImGui::Unindent();
-            ImGui::TreePop();
-        }
-    }
-    ImGui::End();
-    
-    ImGui::PopID();
-}
-
-void VulkanEngine::imgui_material_inspector(const GLTFMaterial *material)
-{
-    assert(material != nullptr);
-    if (ImGui::Begin("Material Inspector"))
-    {
-        ImGui::Text(material->name.c_str());
-        ImGui::Text("");
-
-        auto colorFactors = material->params.colorFactors;
-        ImGui::Text("Color Factors: %.1f, %.1f, %.1f, %.1f", colorFactors.r, colorFactors.g, colorFactors.b, colorFactors.a);
-        ImGui::Text("Metal: %.1f", material->params.metal_rough_factors.r);
-        ImGui::Text("Roughness: %.1f", material->params.metal_rough_factors.g);
-        ImGui::Text("");
-
-        ImGui::Text("Color Image: %s", material->colorImage->name.c_str());
-        ImGui::Text("Color Sampler: %s", material->colorSampler->name.c_str());
     }
     ImGui::End();
 }
 
 void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene)
 {
-    if (ImGui::Begin("Local Scene Inspector"))
+    if (ImGui::Begin("Local Scene Inspector", &_imguiLocalSceneInspectorWindow))
     {
-        ImGui::Text("Path: %s", scene->path.c_str());
+        if (scene == nullptr)
+        {
+            ImGui::Text("No scene selected");
+            ImGui::End();
+            return;
+        }
+
+        if (!scene->name.empty())
+        {
+            ImGui::Text("%s", scene->name.c_str());
+        }
+        if (!scene->path.empty())
+        {
+            ImGui::Text("Path: %s", scene->path.c_str());
+        }
+
         ImGui::Text("");
 
         if (ImGui::TreeNode("Meshes", "Meshes: %d", scene->meshes.size()))
@@ -1761,9 +1642,12 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
                 ImGui::PushID(material.get());
                 if (ImGui::TreeNode("", "%s", material->name.c_str()))
                 {
-                    ImGui::Text("Color image: %s", material->colorImage->name.c_str());
-                    ImGui::Text("Color sampler: %p", material->colorSampler.get());
-                    ImGui::Text("Color factors: %.1f, %.1f, %.1f, %.1f", material->params.colorFactors.r, material->params.colorFactors.g, material->params.colorFactors.b, material->params.colorFactors.a);
+                    if (material->hasColorImage)
+                    {
+                        ImGui::Text("Color image: %s", material->colorImage->name.c_str());
+                        ImGui::Text("Color sampler: %p", material->colorSampler.get());
+                    }
+                    ImGui::ColorEdit4("Color", &material->params.colorFactors.r);
                     ImGui::Text("Metallic: %.3f", material->params.metal_rough_factors.r);
                     ImGui::Text("Rougness: %.3f", material->params.metal_rough_factors.g);
                     ImGui::Text("Pass: %s", (material->passType == MaterialPass::MainColor) ? "Opaque" : "Transparent");
@@ -1822,7 +1706,7 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
 
         if (ImGui::Button("Upload scene"))
         {
-            _drawScenes[scene] = uploadLocalScene(scene);
+            _drawScenes[scene] = upload_local_scene(scene);
         }
     }
     ImGui::End();
@@ -1830,7 +1714,7 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
 
 void VulkanEngine::imgui_camera_inspector()
 {
-    if (ImGui::Begin("Camera Inspector"))
+    if (ImGui::Begin("Camera Inspector", &_imguiCameraInspectorWindow))
     {
         ImGui::InputFloat3("Position", &mainCamera.position.x);
     }
@@ -1886,7 +1770,7 @@ bool is_visible(const RenderObject &obj, const glm::mat4 &viewproj)
     }
 }
 
-std::shared_ptr<DrawScene> VulkanEngine::uploadLocalScene(std::shared_ptr<LocalScene> loadedScene)
+std::shared_ptr<DrawScene> VulkanEngine::upload_local_scene(std::shared_ptr<LocalScene> loadedScene)
 {
     auto drawScene = std::make_shared<DrawScene>();
     drawScene->creator = this;
@@ -1958,6 +1842,7 @@ std::shared_ptr<DrawScene> VulkanEngine::uploadLocalScene(std::shared_ptr<LocalS
     {
         // Copies to GPU buffer
         mappedParamsPtr[dataIndex] = material->params;
+        fmt::println("Uploading scene. Material: {}. Color: {} {} {} {}", material->name, material->params.colorFactors.r, material->params.colorFactors.g, material->params.colorFactors.b, material->params.colorFactors.a);
 
         auto drawMaterial = std::make_shared<GLTFMaterial>();
         drawMaterial->name = material->name;
@@ -1990,6 +1875,8 @@ std::shared_ptr<DrawScene> VulkanEngine::uploadLocalScene(std::shared_ptr<LocalS
 
         drawScene->materials.push_back(drawMaterial);
         materialMap[material] = drawMaterial;
+
+        dataIndex++;
     }
 
     std::unordered_map<std::shared_ptr<LocalMesh>, std::shared_ptr<MeshAsset>> meshMap;
