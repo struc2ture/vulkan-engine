@@ -1675,6 +1675,22 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
                     auto parent = node->parent.lock();
                     if (parent != nullptr) ImGui::Text("Parent ID: %s[%llu]", parent->name.c_str(), parent->node_id);
                     else ImGui::Text("Parent ID: none");
+
+                    if (ImGui::TreeNode("Local Tranfsorm"))
+                    {
+                        float *v1 = (float *) &node->localTransform[0];
+                        float *v2 = (float *) &node->localTransform[1];
+                        float *v3 = (float *) &node->localTransform[2];
+                        float *v4 = (float *) &node->localTransform[3];
+
+                        ImGui::InputFloat4("", v1);
+                        ImGui::InputFloat4("", v2);
+                        ImGui::InputFloat4("", v3);
+                        ImGui::InputFloat4("", v4);
+
+                        ImGui::TreePop();
+                    }
+
                     
                     if (ImGui::TreeNode("Children", "Children: %d", node->children.size()))
                     {
