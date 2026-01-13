@@ -814,10 +814,16 @@ void VulkanEngine::cleanup()
 
         loadedScenes.clear();
 
+        for (auto &[k, v] : _imguiPreviewTextures)
+        {
+            destroy_image(v->image);
+        }
+
         //_drawSceneTest->clearGPUData();
         _drawSceneTest.reset();
         _localScenes.clear();
         _drawScenes.clear();
+
 
         for (int i = 0; i < FRAME_OVERLAP; i++)
         {
@@ -1417,6 +1423,8 @@ void VulkanEngine::imgui_uis()
         imgui_local_scene_inspector(inspectedSceneSharedPtr);
     }
 
+    imgui_camera_inspector();
+
     // some imgui ui to test
     ImGui::ShowDemoWindow();
 }
@@ -1695,6 +1703,26 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
                 if (ImGui::TreeNode("", "%s", image->name.c_str()))
                 {
                     ImGui::Text("%d x %d px", image->width, image->height);
+                    std::shared_ptr<ImguiPreviewTexture> tex = nullptr;
+                    if (_imguiPreviewTextures.find(image) != _imguiPreviewTextures.end())
+                    {
+                        tex = _imguiPreviewTextures[image];
+                    }
+                    else
+                    {
+                        tex = std::make_shared<ImguiPreviewTexture>();
+
+                        VkExtent3D imageExtent {};
+                        imageExtent.width = image->width;
+                        imageExtent.height = image->height;
+                        imageExtent.depth = 1;
+
+                        tex->image = create_image(image->data, imageExtent, image->format, VK_IMAGE_USAGE_SAMPLED_BIT, false);
+                        tex->texture_id = ImGui_ImplVulkan_AddTexture(_defaultSamplerLinear, tex->image.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+                        _imguiPreviewTextures[image] = tex;
+                    }
+                    ImGui::Image(tex->texture_id, ImVec2(image->width, image->height));
                     if (image->path.has_value())
                     {
                         ImGui::Text("File at %s", image->path.value().generic_string().c_str());
@@ -1799,6 +1827,16 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
     }
     ImGui::End();
 }
+
+void VulkanEngine::imgui_camera_inspector()
+{
+    if (ImGui::Begin("Camera Inspector"))
+    {
+        ImGui::InputFloat3("Position", &mainCamera.position.x);
+    }
+    ImGui::End();
+}
+
 
 void VulkanEngine::set_console_mode(bool state)
 {

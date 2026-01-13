@@ -10,6 +10,8 @@
 
 #include "camera.h"
 
+#include <imgui.h>
+
 struct DeletionQueue
 {
 	std::deque<std::function<void()>> deletors;
@@ -150,6 +152,12 @@ struct DrawScene : public IRenderable
 	void clearGPUData();
 };
 
+struct ImguiPreviewTexture
+{
+	AllocatedImage image;
+	ImTextureID texture_id;
+};
+
 class VulkanEngine {
 public:
 
@@ -248,6 +256,8 @@ public:
 	std::unordered_map<std::shared_ptr<LocalScene>, std::shared_ptr<DrawScene>> _drawScenes;
 	std::weak_ptr<LocalScene> _inspectedScene;
 
+	std::unordered_map<std::shared_ptr<LocalImage>, std::shared_ptr<ImguiPreviewTexture>> _imguiPreviewTextures;
+
 	void update_scene();
 
 	static VulkanEngine& Get();
@@ -306,6 +316,7 @@ private:
 	void imgui_material_inspector(const GLTFMaterial *material);
 	void imgui_scene_list();
 	void imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene);
+	void imgui_camera_inspector();
 
 	void set_console_mode(bool state);
 };
