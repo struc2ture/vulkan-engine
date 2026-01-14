@@ -151,6 +151,10 @@ struct LocalScene
     std::vector<std::shared_ptr<LocalNode>> topNodes;
 };
 
+std::shared_ptr<LocalMesh> local_mesh_empty(std::string name);
+std::shared_ptr<LocalMesh> local_mesh_cube(std::string name, std::shared_ptr<LocalMaterial> material);
+std::shared_ptr<LocalMesh> local_mesh_cylinder(std::string name, std::shared_ptr<LocalMaterial> material);
+
 LocalImage load_image_data(fastgltf::Asset &asset, fastgltf::Image &image, std::filesystem::path parentPath);
 LocalImage load_image_data_from_file(std::filesystem::path path);
 void free_image_data(LocalImage &image); // TODO: Implement and put into LocalScene destructor

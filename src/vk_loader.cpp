@@ -988,93 +988,216 @@ std::optional<std::shared_ptr<LocalScene>> load_scene(VulkanEngine *engine, std:
     return scene;
 }
 
+std::shared_ptr<LocalMesh> local_mesh_empty(std::string name)
+{
+    auto mesh = std::make_shared<LocalMesh>();
+    mesh->name = name;
+    return mesh;
+}
+
+std::shared_ptr<LocalMesh> local_mesh_cube(std::string name, std::shared_ptr<LocalMaterial> material)
+{
+    auto mesh = std::make_shared<LocalMesh>();
+    mesh->name = name;
+
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, -1.0, -1.0), .uv_x = 0.0, .normal = glm::vec3(1.0, 0.0, 0.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, 1.0, -1.0), .uv_x = 1.0, .normal = glm::vec3(1.0, 0.0, 0.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, 1.0, 1.0), .uv_x = 1.0, .normal = glm::vec3(1.0, 0.0, 0.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, -1.0, 1.0), .uv_x = 0.0, .normal = glm::vec3(1.0, 0.0, 0.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, -1.0, 1.0), .uv_x = 0.0, .normal = glm::vec3(-1.0, 0.0, 0.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, 1.0, 1.0), .uv_x = 1.0, .normal = glm::vec3(-1.0, 0.0, 0.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, 1.0, -1.0), .uv_x = 1.0, .normal = glm::vec3(-1.0, 0.0, 0.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, -1.0, -1.0), .uv_x = 0.0, .normal = glm::vec3(-1.0, 0.0, 0.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, 1.0, -1.0), .uv_x = 0.0, .normal = glm::vec3(0.0, 1.0, 0.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, 1.0, 1.0), .uv_x = 0.0, .normal = glm::vec3(0.0, 1.0, 0.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, 1.0, 1.0), .uv_x = 1.0, .normal = glm::vec3(0.0, 1.0, 0.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, 1.0, -1.0), .uv_x = 1.0, .normal = glm::vec3(0.0, 1.0, 0.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, -1.0, 1.0), .uv_x = 0.0, .normal = glm::vec3(0.0, -1.0, 0.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, -1.0, -1.0), .uv_x = 0.0, .normal = glm::vec3(0.0, -1.0, 0.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, -1.0, -1.0), .uv_x = 1.0, .normal = glm::vec3(0.0, -1.0, 0.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, -1.0, 1.0), .uv_x = 1.0, .normal = glm::vec3(0.0, -1.0, 0.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, -1.0, 1.0), .uv_x = 0.0, .normal = glm::vec3(0.0, 0.0, 1.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, 1.0, 1.0), .uv_x = 0.0, .normal = glm::vec3(0.0, 0.0, 1.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, 1.0, 1.0), .uv_x = 1.0, .normal = glm::vec3(0.0, 0.0, 1.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, -1.0, 1.0), .uv_x = 1.0, .normal = glm::vec3(0.0, 0.0, 1.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, -1.0, -1.0), .uv_x = 0.0, .normal = glm::vec3(0.0, 0.0, -1.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, 1.0, -1.0), .uv_x = 0.0, .normal = glm::vec3(0.0, 0.0, -1.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, 1.0, -1.0), .uv_x = 1.0, .normal = glm::vec3(0.0, 0.0, -1.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, -1.0, -1.0), .uv_x = 1.0, .normal = glm::vec3(0.0, 0.0, -1.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->indices = {
+        0,1,2,    0,2,3,
+        4,5,6,    4,6,7,
+        8,9,10,   8,10,11,
+        12,13,14, 12,14,15,
+        16,17,18, 16,18,19,
+        20,21,22, 20,22,23
+    };
+
+    LocalPrimitive primitive {};
+    primitive.startIndex = 0;
+    primitive.indexCount = mesh->indices.size();
+    primitive.bounds = calculate_bounds(*mesh, primitive);
+    primitive.material = material;
+
+    mesh->primitives.push_back(primitive);
+
+    return mesh;
+}
+
+std::shared_ptr<LocalMesh> local_mesh_cylinder(std::string name, std::shared_ptr<LocalMaterial> material)
+{
+    auto mesh = std::make_shared<LocalMesh>();
+    mesh->name = name;
+    
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, -1.0, 0.0), .uv_x = 0.0, .normal = glm::vec3(1.0, 0.0, 0.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, 1.0, 0.0), .uv_x = 0.0, .normal = glm::vec3(1.0, 0.0, 0.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(0.924, -1.0, 0.383), .uv_x = 0.06, .normal = glm::vec3(0.924, 0.0, 0.383), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(0.924, 1.0, 0.383), .uv_x = 0.06, .normal = glm::vec3(0.924, 0.0, 0.383), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(0.707, -1.0, 0.707), .uv_x = 0.12, .normal = glm::vec3(0.707, 0.0, 0.707), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(0.707, 1.0, 0.707), .uv_x = 0.12, .normal = glm::vec3(0.707, 0.0, 0.707), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(0.383, -1.0, 0.924), .uv_x = 0.19, .normal = glm::vec3(0.383, 0.0, 0.924), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(0.383, 1.0, 0.924), .uv_x = 0.19, .normal = glm::vec3(0.383, 0.0, 0.924), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(0.0, -1.0, 1.0), .uv_x = 0.25, .normal = glm::vec3(0.0, 0.0, 1.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(0.0, 1.0, 1.0), .uv_x = 0.25, .normal = glm::vec3(0.0, 0.0, 1.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(-0.383, -1.0, 0.924), .uv_x = 0.31, .normal = glm::vec3(-0.383, 0.0, 0.924), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(-0.383, 1.0, 0.924), .uv_x = 0.31, .normal = glm::vec3(-0.383, 0.0, 0.924), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(-0.707, -1.0, 0.707), .uv_x = 0.38, .normal = glm::vec3(-0.707, 0.0, 0.707), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(-0.707, 1.0, 0.707), .uv_x = 0.38, .normal = glm::vec3(-0.707, 0.0, 0.707), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(-0.924, -1.0, 0.383), .uv_x = 0.44, .normal = glm::vec3(-0.924, 0.0, 0.383), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(-0.924, 1.0, 0.383), .uv_x = 0.44, .normal = glm::vec3(-0.924, 0.0, 0.383), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, -1.0, 0.0), .uv_x = 0.5, .normal = glm::vec3(-1.0, 0.0, 0.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, 1.0, 0.0), .uv_x = 0.5, .normal = glm::vec3(-1.0, 0.0, 0.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(-0.924, -1.0, -0.383), .uv_x = 0.56, .normal = glm::vec3(-0.924, 0.0, -0.383), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(-0.924, 1.0, -0.383), .uv_x = 0.56, .normal = glm::vec3(-0.924, 0.0, -0.383), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(-0.707, -1.0, -0.707), .uv_x = 0.62, .normal = glm::vec3(-0.707, 0.0, -0.707), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(-0.707, 1.0, -0.707), .uv_x = 0.62, .normal = glm::vec3(-0.707, 0.0, -0.707), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(-0.383, -1.0, -0.924), .uv_x = 0.69, .normal = glm::vec3(-0.383, 0.0, -0.924), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(-0.383, 1.0, -0.924), .uv_x = 0.69, .normal = glm::vec3(-0.383, 0.0, -0.924), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(0.0, -1.0, -1.0), .uv_x = 0.75, .normal = glm::vec3(0.0, 0.0, -1.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(0.0, 1.0, -1.0), .uv_x = 0.75, .normal = glm::vec3(0.0, 0.0, -1.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(0.383, -1.0, -0.924), .uv_x = 0.81, .normal = glm::vec3(0.383, 0.0, -0.924), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(0.383, 1.0, -0.924), .uv_x = 0.81, .normal = glm::vec3(0.383, 0.0, -0.924), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(0.707, -1.0, -0.707), .uv_x = 0.88, .normal = glm::vec3(0.707, 0.0, -0.707), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(0.707, 1.0, -0.707), .uv_x = 0.88, .normal = glm::vec3(0.707, 0.0, -0.707), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(0.924, -1.0, -0.383), .uv_x = 0.94, .normal = glm::vec3(0.924, 0.0, -0.383), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(0.924, 1.0, -0.383), .uv_x = 0.94, .normal = glm::vec3(0.924, 0.0, -0.383), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(0.0, 1.0, 0.0), .uv_x = 0.5, .normal = glm::vec3(0.0, 1.0, 0.0), .uv_y = 0.5, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->vertices.push_back(Vertex { .position = glm::vec3(0.0, -1.0, 0.0), .uv_x = 0.5, .normal = glm::vec3(0.0, -1.0, 0.0), .uv_y = 0.5, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
+    mesh->indices = {
+        // Sides (16 quads)
+        0,1,3, 0,3,2,
+        2,3,5, 2,5,4,
+        4,5,7, 4,7,6,
+        6,7,9, 6,9,8,
+        8,9,11, 8,11,10,
+        10,11,13, 10,13,12,
+        12,13,15, 12,15,14,
+        14,15,17, 14,17,16,
+        16,17,19, 16,19,18,
+        18,19,21, 18,21,20,
+        20,21,23, 20,23,22,
+        22,23,25, 22,25,24,
+        24,25,27, 24,27,26,
+        26,27,29, 26,29,28,
+        28,29,31, 28,31,30,
+        30,31,1, 30,1,0,
+
+        // Top fan (center = 32)
+        32,1,3,
+        32,3,5,
+        32,5,7,
+        32,7,9,
+        32,9,11,
+        32,11,13,
+        32,13,15,
+        32,15,17,
+        32,17,19,
+        32,19,21,
+        32,21,23,
+        32,23,25,
+        32,25,27,
+        32,27,29,
+        32,29,31,
+        32,31,1,
+
+        // Bottom fan (center = 33)
+        33,2,0,
+        33,4,2,
+        33,6,4,
+        33,8,6,
+        33,10,8,
+        33,12,10,
+        33,14,12,
+        33,16,14,
+        33,18,16,
+        33,20,18,
+        33,22,20,
+        33,24,22,
+        33,26,24,
+        33,28,26,
+        33,30,28,
+        33,0,30
+    };
+
+    LocalPrimitive primitive {};
+    primitive.startIndex = 0;
+    primitive.indexCount = mesh->indices.size();
+    primitive.bounds = calculate_bounds(*mesh, primitive);
+    primitive.material = material;
+
+    mesh->primitives.push_back(primitive);
+
+    return mesh;
+}
+
 std::shared_ptr<LocalScene> new_local_scene(VulkanEngine *engine, std::string name)
 {
     auto scene = std::make_shared<LocalScene>();
-    scene->name = name;
+    scene->name = name.empty() ? "BoxScene" : name;
 
-    // material
+    bool addDefault = name.empty();
+
+    if (addDefault)
     {
-        auto newMaterial = std::make_shared<LocalMaterial>();
-        newMaterial->name = "Box Material";
-        newMaterial->hasColorImage = false;
+        // material
+        {
+            auto newMaterial = std::make_shared<LocalMaterial>();
+            newMaterial->name = "BoxMaterial";
+            newMaterial->hasColorImage = false;
 
-        MaterialParameters material_params {};
-        material_params.colorFactors.r = 1.0f;
-        material_params.colorFactors.g = 1.0f;
-        material_params.colorFactors.b = 1.0f;
-        material_params.colorFactors.a = 1.0f;
+            MaterialParameters material_params {};
+            material_params.colorFactors.r = 1.0f;
+            material_params.colorFactors.g = 1.0f;
+            material_params.colorFactors.b = 1.0f;
+            material_params.colorFactors.a = 1.0f;
 
-        material_params.metal_rough_factors.r = 0.0f;
-        material_params.metal_rough_factors.g = 1.0f;
+            material_params.metal_rough_factors.r = 0.0f;
+            material_params.metal_rough_factors.g = 1.0f;
 
-        newMaterial->params = material_params;
+            newMaterial->params = material_params;
 
-        newMaterial->passType = MaterialPass::MainColor;
+            newMaterial->passType = MaterialPass::MainColor;
 
-        scene->materials.push_back(newMaterial);
-    }
+            scene->materials.push_back(newMaterial);
+        }
 
-    // mesh
-    {
-        auto mesh = std::make_shared<LocalMesh>();
-        mesh->name = "Cube";
-        mesh->indices;
+        // mesh
+        {
+            auto mesh = local_mesh_cube("BoxMesh", scene->materials[0]);
+            scene->meshes.push_back(mesh);
+        }
 
-        mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, -1.0, -1.0), .uv_x = 0.0, .normal = glm::vec3(1.0, 0.0, 0.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
-        mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, 1.0, -1.0), .uv_x = 1.0, .normal = glm::vec3(1.0, 0.0, 0.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
-        mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, 1.0, 1.0), .uv_x = 1.0, .normal = glm::vec3(1.0, 0.0, 0.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
-        mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, -1.0, 1.0), .uv_x = 0.0, .normal = glm::vec3(1.0, 0.0, 0.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
-        mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, -1.0, 1.0), .uv_x = 0.0, .normal = glm::vec3(-1.0, 0.0, 0.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
-        mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, 1.0, 1.0), .uv_x = 1.0, .normal = glm::vec3(-1.0, 0.0, 0.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
-        mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, 1.0, -1.0), .uv_x = 1.0, .normal = glm::vec3(-1.0, 0.0, 0.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
-        mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, -1.0, -1.0), .uv_x = 0.0, .normal = glm::vec3(-1.0, 0.0, 0.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
-        mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, 1.0, -1.0), .uv_x = 0.0, .normal = glm::vec3(0.0, 1.0, 0.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
-        mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, 1.0, 1.0), .uv_x = 0.0, .normal = glm::vec3(0.0, 1.0, 0.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
-        mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, 1.0, 1.0), .uv_x = 1.0, .normal = glm::vec3(0.0, 1.0, 0.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
-        mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, 1.0, -1.0), .uv_x = 1.0, .normal = glm::vec3(0.0, 1.0, 0.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
-        mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, -1.0, 1.0), .uv_x = 0.0, .normal = glm::vec3(0.0, -1.0, 0.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
-        mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, -1.0, -1.0), .uv_x = 0.0, .normal = glm::vec3(0.0, -1.0, 0.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
-        mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, -1.0, -1.0), .uv_x = 1.0, .normal = glm::vec3(0.0, -1.0, 0.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
-        mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, -1.0, 1.0), .uv_x = 1.0, .normal = glm::vec3(0.0, -1.0, 0.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
-        mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, -1.0, 1.0), .uv_x = 0.0, .normal = glm::vec3(0.0, 0.0, 1.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
-        mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, 1.0, 1.0), .uv_x = 0.0, .normal = glm::vec3(0.0, 0.0, 1.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
-        mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, 1.0, 1.0), .uv_x = 1.0, .normal = glm::vec3(0.0, 0.0, 1.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
-        mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, -1.0, 1.0), .uv_x = 1.0, .normal = glm::vec3(0.0, 0.0, 1.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
-        mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, -1.0, -1.0), .uv_x = 0.0, .normal = glm::vec3(0.0, 0.0, -1.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
-        mesh->vertices.push_back(Vertex { .position = glm::vec3(-1.0, 1.0, -1.0), .uv_x = 0.0, .normal = glm::vec3(0.0, 0.0, -1.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
-        mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, 1.0, -1.0), .uv_x = 1.0, .normal = glm::vec3(0.0, 0.0, -1.0), .uv_y = 1.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
-        mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, -1.0, -1.0), .uv_x = 1.0, .normal = glm::vec3(0.0, 0.0, -1.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
-        mesh->indices = {
-            0,1,2,    0,2,3,
-            4,5,6,    4,6,7,
-            8,9,10,   8,10,11,
-            12,13,14, 12,14,15,
-            16,17,18, 16,18,19,
-            20,21,22, 20,22,23
-        };
+        // node
+        {
+            auto node = std::make_shared<LocalNode>();
+            node->name = "BoxNode";
+            node->node_id = 0;
+            node->loaded_mesh = scene->meshes[0];
+            node->localTransform = glm::mat4 { 1.0f };
 
-        LocalPrimitive primitive {};
-        primitive.material = scene->materials[0];
-        primitive.startIndex = 0;
-        primitive.indexCount = mesh->indices.size();
-        primitive.bounds = calculate_bounds(*mesh, primitive);
-
-        mesh->primitives.push_back(primitive);
-
-        scene->meshes.push_back(mesh);
-    }
-
-    // node
-    {
-        auto node = std::make_shared<LocalNode>();
-        node->name = "Box";
-        node->node_id = 0;
-        node->loaded_mesh = scene->meshes[0];
-        node->localTransform = glm::mat4 { 1.0f };
-
-        scene->nodes.push_back(node);
-        scene->topNodes.push_back(node);
+            scene->nodes.push_back(node);
+            scene->topNodes.push_back(node);
+        }
     }
 
     return scene;

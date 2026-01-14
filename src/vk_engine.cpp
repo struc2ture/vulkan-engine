@@ -1599,6 +1599,36 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
                 }
                 ImGui::PopID();
             }
+
+            if (scene->materials.size() > 0)
+            {
+                const char* meshTypes[] = { "Empty", "Cube", "Cylinder" };
+                static int meshType = 0;
+                ImGui::Combo("##addMeshCombo", &meshType, meshTypes, 3);
+                ImGui::SameLine();
+                if (ImGui::Button("Add Mesh"))
+                {
+                    switch (meshType)
+                    {
+                    case 1:
+                        scene->meshes.push_back(local_mesh_cube("Cube", scene->materials[0]));
+                        break;
+                    case 2:
+                        scene->meshes.push_back(local_mesh_cylinder("Cylinder", scene->materials[0]));
+                        break;
+                    default:
+                        scene->meshes.push_back(local_mesh_empty("Empty"));
+                    }
+                }
+            }
+            else
+            {
+                ImGui::BeginDisabled();
+                ImGui::Button("Add Mesh");
+                ImGui::EndDisabled();
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
+                    ImGui::SetTooltip("No materials in the scene");
+            }
             ImGui::TreePop();
         }
         if (ImGui::TreeNode("Images", "Images: %d", scene->images.size()))
@@ -1849,6 +1879,49 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
                 }
                 ImGui::PopID();
             }
+
+            if (scene->meshes.size() > 0)
+            {
+                static int selectedMesh = 0;
+                if (ImGui::BeginCombo("##addNodeMeshCombo", scene->meshes[selectedMesh]->name.c_str()))
+                {
+                    for (size_t meshI = 0; meshI < scene->meshes.size(); meshI++)
+                    {
+                        const bool isSelected = meshI == selectedMesh;
+                        if (ImGui::Selectable(scene->meshes[meshI]->name.c_str(), isSelected))
+                            selectedMesh = meshI;
+
+                        if (isSelected)
+                            ImGui::SetItemDefaultFocus();
+                    }
+                    ImGui::EndCombo();
+                }
+
+                static char addNodeBuffer[256] = {};
+                ImGui::InputText("##addNodeInput", addNodeBuffer, 256);
+                ImGui::SameLine();
+
+                if (ImGui::Button("Add Node"))
+                {
+                    auto node = std::make_shared<LocalNode>();
+                    node->name = addNodeBuffer;
+                    node->node_id = (uint64_t)scene->meshes.size();
+                    node->loaded_mesh = scene->meshes[selectedMesh];
+                    node->localTransform = glm::mat4 { 1.0f };
+
+                    scene->nodes.push_back(node);
+                    scene->topNodes.push_back(node);
+                }
+            }
+            else
+            {
+                ImGui::BeginDisabled();
+                ImGui::Button("Add Node");
+                ImGui::EndDisabled();
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
+                    ImGui::SetTooltip("No meshes in the scene");
+            }
+
             ImGui::TreePop();
         }
 
