@@ -152,6 +152,7 @@ struct LocalScene
 };
 
 LocalImage load_image_data(fastgltf::Asset &asset, fastgltf::Image &image, std::filesystem::path parentPath);
+LocalImage load_image_data_from_file(std::filesystem::path path);
 void free_image_data(LocalImage &image); // TODO: Implement and put into LocalScene destructor
 std::optional<std::shared_ptr<LocalScene>> load_scene(VulkanEngine *engine, std::string_view filePath);
 std::shared_ptr<LocalScene> new_local_scene(VulkanEngine *engine, std::string name);

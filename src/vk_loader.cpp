@@ -617,6 +617,24 @@ LocalImage load_image_data(fastgltf::Asset &asset, fastgltf::Image &image, std::
     return newImage;
 }
 
+LocalImage load_image_data_from_file(std::filesystem::path path)
+{
+    LocalImage newImage {};
+    int width, height, nrChannels;
+
+    unsigned char *data = stbi_load(path.generic_string().c_str(), &width, &height, &nrChannels, 4);
+    if (data) {
+        newImage.data = data;
+        newImage.format = VK_FORMAT_R8G8B8A8_UNORM;
+        newImage.width = width;
+        newImage.height = height;
+    }
+    
+    newImage.name = (newImage.data == nullptr) ? "<Texture not loaded>" : path.filename().generic_string().c_str();
+
+    return newImage;
+}
+
 std::optional<AllocatedImage> load_image(VulkanEngine *engine, fastgltf::Asset &asset, fastgltf::Image &image, std::filesystem::path parentPath)
 {
     AllocatedImage newImage {};
@@ -721,7 +739,6 @@ std::optional<std::shared_ptr<LocalScene>> load_scene(VulkanEngine *engine, std:
 
     fastgltf::Asset gltf;
 
-
     auto type = fastgltf::determineGltfFileType(&data);
     if (type == fastgltf::GltfType::glTF)
     {
@@ -758,10 +775,10 @@ std::optional<std::shared_ptr<LocalScene>> load_scene(VulkanEngine *engine, std:
     for (fastgltf::Sampler &sampler : gltf.samplers)
     {
         auto newSampler = std::make_shared<LocalSampler>();
-        newSampler->name = sampler.name.c_str();
         newSampler->magFilter = extract_filter(sampler.magFilter.value_or(fastgltf::Filter::Nearest));
         newSampler->minFilter = extract_filter(sampler.minFilter.value_or(fastgltf::Filter::Nearest));
         newSampler->mipmapMode = extract_mipmap_mode(sampler.minFilter.value_or(fastgltf::Filter::Nearest));
+        newSampler->name = sampler.name.empty() ? (newSampler->magFilter == VK_FILTER_NEAREST ? "Nearest" : "Linear") : sampler.name.c_str();
         scene->samplers.push_back(newSampler);
     }
 

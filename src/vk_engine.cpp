@@ -1549,7 +1549,7 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
                         {
                             //ImGui::Text("%d: %.1f, %.1f, %.1f", vertI++, vertex.position.x, vertex.position.y, vertex.position.z);
                             ImGui::PushID(vertI++);
-                            ImGui::InputFloat3("", &vertex.position.x);
+                            ImGui::DragFloat3("", &vertex.position.x, 0.01f);
                             ImGui::PopID();
                         }
                         ImGui::TreePop();
@@ -1564,9 +1564,34 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
                     }
                     if (ImGui::TreeNode("Primitives", "Primitives (%d)", mesh->primitives.size()))
                     {
+                        int primitiveI = 0;
                         for (auto &primitive : mesh->primitives)
                         {
-                            ImGui::Text("%d, %d; %.1f, %.1f, %.1f", primitive.startIndex, primitive.indexCount, primitive.bounds.origin.x, primitive.bounds.origin.y, primitive.bounds.origin.z);
+                            ImGui::PushID(primitiveI);
+                            if (ImGui::TreeNode("", "Primitive %d", primitiveI))
+                            {
+                                ImGui::Text("Start Index: %u", primitive.startIndex);
+                                ImGui::Text("Index Count: %u", primitive.indexCount);
+                                ImGui::Text("Bounds: %.1f, %.1f, %.1f", primitive.bounds.origin.x, primitive.bounds.origin.y, primitive.bounds.origin.z);
+
+                                if (ImGui::BeginCombo("##materialCombo", primitive.material->name.c_str()))
+                                {
+                                    for (auto &material : scene->materials)
+                                    {
+                                        const bool isSelected = material == primitive.material;
+                                        if (ImGui::Selectable(material->name.c_str(), isSelected))
+                                            primitive.material = material;
+
+                                        if (isSelected)
+                                            ImGui::SetItemDefaultFocus();
+                                    }
+                                    ImGui::EndCombo();
+                                }
+
+                                ImGui::TreePop();
+                            }
+                            ImGui::PopID();
+                            primitiveI++;
                         }
                         ImGui::TreePop();
                     }
@@ -1616,6 +1641,14 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
                 }
                 ImGui::PopID();
             }
+            static char addImageBuffer[256] = {};
+            ImGui::InputText("##addImageInput", addImageBuffer, 256);
+            ImGui::SameLine();
+            if (ImGui::Button("Add Image"))
+            {
+                auto newImage = std::make_shared<LocalImage>(load_image_data_from_file(addImageBuffer));
+                scene->images.push_back(newImage);
+            }
             ImGui::TreePop();
         }
         if (ImGui::TreeNode("Samplers", "Samplers: %d", scene->samplers.size()))
@@ -1633,6 +1666,31 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
                 }
                 ImGui::PopID();
             }
+
+            const char* samplerTypes[] = { "Nearest", "Linear"  };
+            static int samplerType = 0;
+            ImGui::Combo("##addSamplerCombo", &samplerType, samplerTypes, 2);
+            ImGui::SameLine();
+            if (ImGui::Button("Add Sampler"))
+            {
+                auto newSampler = std::make_shared<LocalSampler>();
+                switch (samplerType)
+                {
+                case 0:
+                    newSampler->magFilter = VK_FILTER_NEAREST;
+                    newSampler->minFilter = VK_FILTER_NEAREST;
+                    newSampler->mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+                    newSampler->name = "Nearest";
+                    break;
+                default:
+                    newSampler->magFilter = VK_FILTER_LINEAR;
+                    newSampler->minFilter = VK_FILTER_LINEAR;
+                    newSampler->mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+                    newSampler->name = "Linear";
+                }
+                scene->samplers.push_back(newSampler);
+            }
+
             ImGui::TreePop();
         }
         if (ImGui::TreeNode("Materials", "Materials: %d", scene->materials.size()))
@@ -1646,15 +1704,95 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
                     {
                         ImGui::Text("Color image: %s", material->colorImage->name.c_str());
                         ImGui::Text("Color sampler: %p", material->colorSampler.get());
+                        if (ImGui::Button("Remove Color Image"))
+                        {
+                            material->hasColorImage = false;
+                            material->colorImage.reset();
+                            material->colorSampler.reset();
+                        }
+                    }
+                    else
+                    {
+                        //scene->images
+                        if (scene->images.size() > 0 && scene->samplers.size() > 0)
+                        {
+                            static int selectedImage = 0;
+                            if (ImGui::BeginCombo("##colorImageCombo", scene->images[selectedImage]->name.c_str()))
+                            {
+                                for (size_t imageI = 0; imageI < scene->images.size(); imageI++)
+                                {
+                                    const bool isSelected = imageI == selectedImage;
+                                    if (ImGui::Selectable(scene->images[imageI]->name.c_str(), isSelected))
+                                        selectedImage = imageI;
+
+                                    if (isSelected)
+                                        ImGui::SetItemDefaultFocus();
+                                }
+                                ImGui::EndCombo();
+                            }
+
+                            static int selectedSampler = 0;
+                            if (ImGui::BeginCombo("##colorSamplerCombo", scene->samplers[selectedSampler]->name.c_str()))
+                            {
+                                for (size_t samplerI = 0; samplerI < scene->samplers.size(); samplerI++)
+                                {
+                                    const bool isSelected = samplerI == selectedSampler;
+                                    if (ImGui::Selectable(scene->samplers[samplerI]->name.c_str(), isSelected))
+                                        selectedSampler = samplerI;
+
+                                    if (isSelected)
+                                        ImGui::SetItemDefaultFocus();
+                                }
+                                ImGui::EndCombo();
+                            }
+
+                            if (ImGui::Button("Add Color Image"))
+                            {
+                                material->colorImage = scene->images[selectedImage];
+                                material->colorSampler = scene->samplers[selectedSampler];
+                                material->hasColorImage = true;
+                            }
+                        }
+                        else
+                        {
+                            ImGui::BeginDisabled();
+                            ImGui::Button("Add Color Image");
+                            ImGui::EndDisabled();
+                            if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
+                                ImGui::SetTooltip("No image or sampler in the scene.");
+                        }
                     }
                     ImGui::ColorEdit4("Color", &material->params.colorFactors.r);
-                    ImGui::Text("Metallic: %.3f", material->params.metal_rough_factors.r);
-                    ImGui::Text("Rougness: %.3f", material->params.metal_rough_factors.g);
+                    ImGui::DragFloat("Metallic", &material->params.metal_rough_factors.r, 0.01f);
+                    ImGui::DragFloat("Rougness", &material->params.metal_rough_factors.g, 0.01f);
                     ImGui::Text("Pass: %s", (material->passType == MaterialPass::MainColor) ? "Opaque" : "Transparent");
                     ImGui::TreePop();
                 }
                 ImGui::PopID();
             }
+
+            static char addMaterialBuffer[256];
+            ImGui::InputText("##addMaterialInput", addMaterialBuffer, 256);
+            ImGui::SameLine();
+            if (ImGui::Button("Add Material"))
+            {
+                MaterialParameters material_params {};
+                material_params.colorFactors.r = 1.0f;
+                material_params.colorFactors.g = 1.0f;
+                material_params.colorFactors.b = 1.0f;
+                material_params.colorFactors.a = 1.0f;
+
+                material_params.metal_rough_factors.r = 0.0f;
+                material_params.metal_rough_factors.g = 1.0f;
+
+                auto newMaterial = std::make_shared<LocalMaterial>();
+                newMaterial->params = material_params;
+                newMaterial->hasColorImage = false;
+                newMaterial->passType = MaterialPass::MainColor;
+                newMaterial->name = addMaterialBuffer;
+                scene->materials.push_back(newMaterial);
+            }
+
             ImGui::TreePop();
         }
 
@@ -1671,15 +1809,25 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
 
                     if (ImGui::TreeNode("Local Tranfsorm"))
                     {
-                        float *v1 = (float *) &node->localTransform[0];
-                        float *v2 = (float *) &node->localTransform[1];
-                        float *v3 = (float *) &node->localTransform[2];
-                        float *v4 = (float *) &node->localTransform[3];
+                        //ImGui::DragFloat4("##col0", &node->localTransform[0][0], 0.01f);
+                        //ImGui::DragFloat4("##col1", &node->localTransform[1][0], 0.01f);
+                        //ImGui::DragFloat4("##col2", &node->localTransform[2][0], 0.01f);
+                        //ImGui::DragFloat4("##col3", &node->localTransform[3][0], 0.01f);
+                        
+                        static glm::vec3 position = node->localTransform[3];
+                        static glm::vec3 rot_euler{ 0.0f };
+                        static glm::vec3 scale{ 1.0f };
 
-                        ImGui::InputFloat4("", v1);
-                        ImGui::InputFloat4("", v2);
-                        ImGui::InputFloat4("", v3);
-                        ImGui::InputFloat4("", v4);
+                        ImGui::DragFloat3("Position", &position.x, 0.01f);
+                        ImGui::DragFloat3("Rotation", &rot_euler.x, 0.01f);
+                        ImGui::DragFloat3("Scale", &scale.x, 0.01f);
+
+                        node->localTransform = glm::mat4{ 1.0f };
+                        node->localTransform = glm::translate(node->localTransform, position);
+                        node->localTransform = glm::rotate(node->localTransform, rot_euler.x, {1, 0, 0});
+                        node->localTransform = glm::rotate(node->localTransform, rot_euler.y, {0, 1, 0});
+                        node->localTransform = glm::rotate(node->localTransform, rot_euler.z, {0, 0, 1});
+                        node->localTransform = glm::scale(node->localTransform, scale);
 
                         ImGui::TreePop();
                     }
