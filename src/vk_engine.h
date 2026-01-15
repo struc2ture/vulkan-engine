@@ -129,6 +129,31 @@ struct MeshNode : public Node
 
 class VulkanEngine;
 
+struct StandardMaterialResourceHeader
+{
+	AllocatedImage ColorImage;
+	VkSampler ColorSampler;
+	AllocatedImage MetalRoughImage;
+	VkSampler MetalRoughSampler;
+	VkBuffer MaterialParamDataBuffer;
+	uint32_t MaterialParamDataBufferOffset;
+};
+
+struct StandardMaterialBuilder
+{
+	MaterialPipeline OpaquePipeline;
+	MaterialPipeline TransparentPipeline;
+
+	VkDescriptorSetLayout MaterialLayout;
+
+	DescriptorWriter Writer;
+
+	void BuildPipelines(VulkanEngine *engine);
+	void ClearResources(VkDevice device);
+
+	MaterialInstance WriteMaterial(VkDevice device, MaterialPass pass, const StandardMaterialResourceHeader &resources, DescriptorAllocatorGrowable &descriptorAllocator);
+};
+
 struct DrawImage
 {
 	std::string name;
@@ -287,8 +312,8 @@ public:
 
 	VkDescriptorSetLayout _singleImageDescriptorLayout;
 
-	MaterialInstance _defaultMaterialInstance;
-	GLTFMetallic_Roughness metalRoughMaterial;
+	//MaterialInstance _defaultMaterialInstance;
+	//GLTFMetallic_Roughness metalRoughMaterial;
 
 	DrawContext mainDrawContext;
 	std::unordered_map<std::string, std::shared_ptr<Node>> loadedNodes;
@@ -301,6 +326,8 @@ public:
 
 	bool _consoleMode;
 	const GLTFMaterial *_inspectedMaterial{ nullptr };
+
+	StandardMaterialBuilder MaterialBuilder;
 
 	std::shared_ptr<LocalScene> _sceneTest;
 	std::shared_ptr<DrawScene> _drawSceneTest;

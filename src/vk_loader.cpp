@@ -304,15 +304,15 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanEngine *engine, std::s
         //    passType = MaterialPass::Transparent;
         //}
 
-        GLTFMetallic_Roughness::ResourceHeader materialResources;
-        materialResources.colorImage = engine->_whiteImage;
-        materialResources.colorSampler = engine->_defaultSamplerLinear;
-        materialResources.metalRoughImage = engine->_whiteImage;
-        materialResources.metalRoughSampler = engine->_defaultSamplerLinear;
+        StandardMaterialResourceHeader resourceHeader;
+        resourceHeader.ColorImage = engine->_whiteImage;
+        resourceHeader.ColorSampler = engine->_defaultSamplerLinear;
+        resourceHeader.MetalRoughImage = engine->_whiteImage;
+        resourceHeader.MetalRoughSampler = engine->_defaultSamplerLinear;
 
-        materialResources.dataBuffer = file.materialDataBuffer.buffer;
-        materialResources.dataBufferOffset = data_index * sizeof(MaterialParameters);
-        
+        resourceHeader.MaterialParamDataBuffer = file.materialDataBuffer.buffer;
+        resourceHeader.MaterialParamDataBufferOffset = data_index * sizeof(MaterialParameters);
+
         int colorImageI = -1;
         int colorSamplerI = -1;
         if (mat.pbrData.baseColorTexture.has_value())
@@ -320,13 +320,13 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanEngine *engine, std::s
             size_t img = gltf.textures[mat.pbrData.baseColorTexture.value().textureIndex].imageIndex.value();
             size_t sampler = gltf.textures[mat.pbrData.baseColorTexture.value().textureIndex].samplerIndex.value();
 
-            materialResources.colorImage = images[img]->image;
-            materialResources.colorSampler = samplers[sampler]->sampler;
+            resourceHeader.ColorImage = images[img]->image;
+            resourceHeader.ColorSampler = samplers[sampler]->sampler;
             colorImageI = (int)img;
             colorSamplerI = (int)sampler;
         }
 
-        newMat->data = engine->metalRoughMaterial.write_material(engine->_device, passType, materialResources, file.descriptorPool);
+        newMat->data = engine->MaterialBuilder.WriteMaterial(engine->_device, passType, resourceHeader, file.descriptorPool);
         newMat->params = params;
 
         // TODO: Forgot to check sentinel
