@@ -38,7 +38,7 @@ struct FrameData
 	VkCommandPool _commandPool;
 	VkCommandBuffer _mainCommandBuffer;
 
-	VkSemaphore _swapchainSemaphore, _renderSemaphore;
+	VkSemaphore _swapchainSemaphore;
 	VkFence _renderFence;
 
 	DeletionQueue _deletionQueue;
@@ -328,6 +328,8 @@ public:
 	std::shared_ptr<DrawScene> upload_local_scene(std::shared_ptr<LocalScene> loaded_scene);
 
 private:
+	std::vector<VkSemaphore> _renderSemaphores;
+
 	void init_vulkan();
 	void init_swapchain();
 	void init_commands();
