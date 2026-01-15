@@ -1,5 +1,4 @@
-﻿//> includes
-#include "vk_engine.h"
+﻿#include "vk_engine.h"
 
 #include <SDL.h>
 #include <SDL_vulkan.h>
@@ -31,13 +30,12 @@ constexpr bool bUseValidationLayers = true;
 VulkanEngine* loadedEngine = nullptr;
 
 VulkanEngine& VulkanEngine::Get() { return *loadedEngine; }
+
 void VulkanEngine::init()
 {
-    // only one engine initialization is allowed with the application.
     assert(loadedEngine == nullptr);
     loadedEngine = this;
 
-    // We initialize SDL and create a window with it.
     SDL_Init(SDL_INIT_VIDEO);
 
     SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
@@ -72,33 +70,13 @@ void VulkanEngine::init()
     mainCamera.pitch = 0;
     mainCamera.yaw = 0;
 
-    //std::string structurePath = { "..\\..\\assets\\structure.glb" };
-    //auto structureFile = loadGltf(this, structurePath);
-
-    //assert(structureFile.has_value());
-
-    //loadedScenes["structure"] = *structureFile;
-
-    std::string quinoaPath = { "..\\..\\assets\\struct_quinoa\\struct_quinoa.gltf" };
-    auto quinoaFile = loadGltf(this, quinoaPath);
-
-    assert(quinoaFile.has_value());
-
-    loadedScenes["struct_quinoa"] = *quinoaFile;
-
-    //auto loadedScene = load_scene(this, "..\\..\\assets\\struct_quinoa\\struct_quinoa.gltf");
     auto loadedScene = load_scene(this, "../../assets/struct_quinoa/struct_quinoa.gltf");
     assert(loadedScene.has_value());
-    //_sceneTest = loadedScene.value();
-
-    //_drawSceneTest = upload_local_scene(_sceneTest);
-
     _localScenes.push_back(loadedScene.value());
     _drawScenes[_localScenes[0]] = upload_local_scene(_localScenes[0]);
 
     set_console_mode(true);
 
-    // everything went fine
     _isInitialized = true;
 }
 
@@ -350,10 +328,6 @@ void VulkanEngine::init_descriptors()
 void VulkanEngine::init_pipelines()
 {
     init_background_pipelines();
-    init_mesh_pipeline();
-
-    //metalRoughMaterial.build_pipelines(this);
-
     MaterialBuilder.BuildPipelines(this);
 }
 
@@ -394,30 +368,6 @@ void VulkanEngine::init_default_data()
         sampl.minFilter = VK_FILTER_LINEAR;
         vkCreateSampler(_device, &sampl, nullptr, &_defaultSamplerLinear);
     }
-
-    // default material
-    //{
-    //    StandardMaterialResourceHeader resourceHeader;
-    //    resourceHeader.ColorImage = _whiteImage;
-    //    resourceHeader.ColorSampler = _defaultSamplerLinear;
-    //    resourceHeader.MetalRoughImage = _whiteImage;
-    //    resourceHeader.MetalRoughSampler = _defaultSamplerLinear;
-
-    //    AllocatedBuffer materialParamsGPUBuffer = create_buffer(sizeof(MaterialParameters), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-
-    //    MaterialParameters *materialParamsMappedData = (MaterialParameters *)materialParamsGPUBuffer.allocation->GetMappedData();
-    //    materialParamsMappedData->colorFactors = glm::vec4{1, 1, 1, 1};
-    //    materialParamsMappedData->metal_rough_factors = glm::vec4{1, 0.5, 0, 0};
-
-    //    _mainDeletionQueue.push_function([=, this]() {
-    //        destroy_buffer(materialParamsGPUBuffer);
-    //    });
-
-    //    resourceHeader.MaterialParamDataBuffer= materialParamsGPUBuffer.buffer;
-    //    resourceHeader.MaterialParamDataBufferOffset = 0;
-
-    //    _defaultMaterialInstance = MaterialBuilder.WriteMaterial(_device, MaterialPass::MainColor, resourceHeader, globalDescriptorAllocator);
-    //}
 
     _mainDeletionQueue.push_function([&]() {
         vkDestroySampler(_device, _defaultSamplerNearest, nullptr);
@@ -504,67 +454,6 @@ void VulkanEngine::init_background_pipelines()
         vkDestroyPipelineLayout(_device, _gradientPipelineLayout, nullptr);
         vkDestroyPipeline(_device, sky.pipeline, nullptr);
         vkDestroyPipeline(_device, gradient.pipeline, nullptr);
-    });
-}
-
-void VulkanEngine::init_mesh_pipeline()
-{
-    VkShaderModule triangleFragShader;
-    if (!vkutil::load_shader_module("../../shaders/tex_image.frag.spv", _device, &triangleFragShader))
-    {
-        fmt::println("Error when building the fragment shader module");
-    }
-    else
-    {
-        fmt::println("Triangle fragment shader successfully loaded");
-    }
-
-    VkShaderModule triangleVertShader;
-    if (!vkutil::load_shader_module("../../shaders/colored_triangle_mesh.vert.spv", _device, &triangleVertShader))
-    {
-        fmt::println("Error when building the vertex shader module");
-    }
-    else
-    {
-        fmt::println("Triangle vertex shader successfully loaded");
-    }
-
-    VkPushConstantRange bufferRange{};
-    bufferRange.offset = 0;
-    bufferRange.size = sizeof(GPUDrawPushConstants);
-    bufferRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-    VkPipelineLayoutCreateInfo pipeline_layout_info = vkinit::pipeline_layout_create_info();
-    pipeline_layout_info.pPushConstantRanges = &bufferRange;
-    pipeline_layout_info.pushConstantRangeCount = 1;
-    pipeline_layout_info.pSetLayouts = &_singleImageDescriptorLayout;
-    pipeline_layout_info.setLayoutCount = 1;
-
-    VK_CHECK(vkCreatePipelineLayout(_device, &pipeline_layout_info, nullptr, &_meshPipelineLayout));
-
-    PipelineBuilder pipelineBuilder;
-    pipelineBuilder._pipelineLayout = _meshPipelineLayout;
-    pipelineBuilder.set_shaders(triangleVertShader,  triangleFragShader);
-    pipelineBuilder.set_input_topology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-    pipelineBuilder.set_polygon_mode(VK_POLYGON_MODE_FILL);
-    pipelineBuilder.set_cull_mode(VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
-    pipelineBuilder.set_multisampling_none();
-    pipelineBuilder.disable_blending();
-    //pipelineBuilder.enable_blending_additive();
-    //pipelineBuilder.disable_depthtest();
-    pipelineBuilder.enable_depthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-
-    pipelineBuilder.set_color_attachment_format(_drawImage.imageFormat);
-    pipelineBuilder.set_depth_format(_depthImage.imageFormat);
-
-    _meshPipeline = pipelineBuilder.build_pipeline(_device);
-
-    vkDestroyShaderModule(_device, triangleFragShader, nullptr);
-    vkDestroyShaderModule(_device, triangleVertShader, nullptr);
-
-    _mainDeletionQueue.push_function([=]() {
-        vkDestroyPipelineLayout(_device, _meshPipelineLayout, nullptr);
-        vkDestroyPipeline(_device, _meshPipeline, nullptr);
     });
 }
 
@@ -814,15 +703,11 @@ void VulkanEngine::cleanup()
     {
         vkDeviceWaitIdle(_device);
 
-        loadedScenes.clear();
-
         for (auto &[k, v] : _imguiPreviewTextures)
         {
             destroy_image(v->image);
         }
 
-        //_drawSceneTest->clearGPUData();
-        _drawSceneTest.reset();
         _localScenes.clear();
         _drawScenes.clear();
 
@@ -840,11 +725,6 @@ void VulkanEngine::cleanup()
             _frames[i]._deletionQueue.flush();
         }
 
-        for (auto &mesh : testMeshes) {
-            destroy_buffer(mesh->meshBuffers.indexBuffer);
-            destroy_buffer(mesh->meshBuffers.vertexBuffer);
-        }
-
         _mainDeletionQueue.flush();
 
         destroy_swapchain();
@@ -859,7 +739,6 @@ void VulkanEngine::cleanup()
         SDL_DestroyWindow(_window);
     }
 
-    // clear engine pointer
     loadedEngine = nullptr;
 }
 
@@ -1171,126 +1050,6 @@ void VulkanEngine::run()
     }
 }
 
-void GLTFMetallic_Roughness::build_pipelines(VulkanEngine *engine)
-{
-    VkShaderModule meshFragShader;
-    if (!vkutil::load_shader_module("../../shaders/mesh.frag.spv", engine->_device, &meshFragShader))
-    {
-        fmt::println("Error when building the mesh fragment shader module");
-    }
-
-    VkShaderModule meshVertexShader;
-    if (!vkutil::load_shader_module("../../shaders/mesh.vert.spv", engine->_device, &meshVertexShader))
-    {
-        fmt::println("Error when building the mesh vertex shader module");
-    }
-
-    VkPushConstantRange matrixRange{};
-    matrixRange.offset = 0;
-    matrixRange.size = sizeof(GPUDrawPushConstants);
-    matrixRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-    DescriptorLayoutBuilder layoutBuilder;
-    layoutBuilder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-    layoutBuilder.add_binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    layoutBuilder.add_binding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-
-    materialLayout = layoutBuilder.build(engine->_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
-
-    VkDescriptorSetLayout layouts[] = { engine->_gpuSceneDataDescriptorLayout, materialLayout };
-
-    VkPipelineLayoutCreateInfo mesh_layout_info = vkinit::pipeline_layout_create_info();
-    mesh_layout_info.setLayoutCount = 2;
-    mesh_layout_info.pSetLayouts = layouts;
-    mesh_layout_info.pPushConstantRanges = &matrixRange;
-    mesh_layout_info.pushConstantRangeCount = 1;
-
-    VkPipelineLayout newLayout;
-    VK_CHECK(vkCreatePipelineLayout(engine->_device, &mesh_layout_info, nullptr, &newLayout));
-
-    opaquePipeline.layout = newLayout;
-    transparentPipeline.layout = newLayout;
-
-    PipelineBuilder pipelineBuilder;
-    pipelineBuilder.set_shaders(meshVertexShader, meshFragShader);
-    pipelineBuilder.set_input_topology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-    pipelineBuilder.set_polygon_mode(VK_POLYGON_MODE_FILL);
-    pipelineBuilder.set_cull_mode(VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
-    pipelineBuilder.set_multisampling_none();
-    pipelineBuilder.disable_blending();
-    //pipelineBuilder.enable_blending_alphablend();
-    pipelineBuilder.enable_depthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-
-    pipelineBuilder.set_color_attachment_format(engine->_drawImage.imageFormat);
-    pipelineBuilder.set_depth_format(engine->_depthImage.imageFormat);
-
-    pipelineBuilder._pipelineLayout = newLayout;
-
-    opaquePipeline.pipeline = pipelineBuilder.build_pipeline(engine->_device);
-
-    // transparent pipeline
-    //pipelineBuilder.enable_blending_additive();
-    pipelineBuilder.enable_blending_alphablend();
-
-    pipelineBuilder.enable_depthtest(false, VK_COMPARE_OP_GREATER_OR_EQUAL);
-
-    transparentPipeline.pipeline = pipelineBuilder.build_pipeline(engine->_device);
-
-    vkDestroyShaderModule(engine->_device, meshFragShader, nullptr);
-    vkDestroyShaderModule(engine->_device, meshVertexShader, nullptr);
-}
-
-MaterialInstance GLTFMetallic_Roughness::write_material(VkDevice device, MaterialPass pass, const ResourceHeader &resources, DescriptorAllocatorGrowable &descriptorAllocator)
-{
-    MaterialInstance matData;
-    matData.passType = pass;
-    if (pass == MaterialPass::Transparent)
-    {
-        matData.pipeline = &transparentPipeline;
-    }
-    else
-    {
-        matData.pipeline = &opaquePipeline;
-    }
-
-    matData.materialSet = descriptorAllocator.allocate(device, materialLayout);
-
-    writer.clear();
-    writer.write_buffer(0, resources.dataBuffer, sizeof(MaterialParameters), resources.dataBufferOffset, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-    writer.write_image(1, resources.colorImage.imageView, resources.colorSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    writer.write_image(2, resources.metalRoughImage.imageView, resources.metalRoughSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    writer.update_set(device, matData.materialSet);
-
-    return matData;
-}
-
-void MeshNode::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
-{
-    glm::mat4 nodeMatrix = topMatrix * worldTransform;
-
-    for (auto &s : mesh->surfaces)
-    {
-        RenderObject def;
-        def.indexCount = s.count;
-        def.firstIndex = s.startIndex;
-        def.indexBuffer = mesh->meshBuffers.indexBuffer.buffer;
-        def.material = &s.material->data;
-        def.bounds = s.bounds;
-        def.transform = nodeMatrix;
-        def.vertexBufferAddress = mesh->meshBuffers.vertexBufferAddress;
-        //def.mesh = mesh.get();
-
-        if (s.material->data.passType == MaterialPass::Transparent) {
-            ctx.transparentSurfaces.push_back(def);
-        } else {
-            ctx.opaqueSurfaces.push_back(def);
-        }
-    }
-
-    // recurse down
-    Node::Draw(topMatrix, ctx);
-}
-
 void StandardMaterialBuilder::BuildPipelines(VulkanEngine *engine)
 {
     VkShaderModule meshFragShader;
@@ -1477,13 +1236,7 @@ void VulkanEngine::update_scene()
 
     mainDrawContext.opaqueSurfaces.clear();
     mainDrawContext.transparentSurfaces.clear();
-    //loadedNodes["Suzanne"]->Draw(glm::mat4{1.0f}, mainDrawContext);
-
-    //loadedScenes["structure"]->Draw(glm::mat4{ 1.0f }, mainDrawContext);
     
-    //loadedScenes["struct_quinoa"]->Draw(glm::mat4{ 1.0f }, mainDrawContext);
-
-    //_drawSceneTest->Draw(glm::mat4{ 1.0f }, mainDrawContext);
     for (auto &[localScene, drawScene] : _drawScenes)
     {
         drawScene->Draw(glm::mat4{ 1.0f }, mainDrawContext);
@@ -1568,12 +1321,12 @@ void VulkanEngine::imgui_stats()
 {
     if (ImGui::Begin("Stats", &_imguiStatsWindow))
     {
-        ImGui::Text("frametime %f ms", stats.frametime);
-        ImGui::Text("draw time %f ms", stats.mesh_draw_time);
-        ImGui::Text("update time %f ms", stats.scene_update_time);
-        ImGui::Text("triangles %i", stats.triangle_count);
-        ImGui::Text("draws %i", stats.drawcall_count);
-        ImGui::Text("render objects %i", stats.render_object_count);
+        ImGui::Text("Frame time: %f ms", stats.frametime);
+        ImGui::Text("Draw time: %f ms", stats.mesh_draw_time);
+        ImGui::Text("Update time: %f ms", stats.scene_update_time);
+        ImGui::Text("Triangles: %i", stats.triangle_count);
+        ImGui::Text("Draws: %i", stats.drawcall_count);
+        ImGui::Text("Render objects: %i", stats.render_object_count);
     }
     ImGui::End();
 }
@@ -2078,7 +1831,6 @@ void VulkanEngine::imgui_camera_inspector()
     ImGui::End();
 }
 
-
 void VulkanEngine::set_console_mode(bool state)
 {
     _consoleMode = state;
@@ -2199,7 +1951,6 @@ std::shared_ptr<DrawScene> VulkanEngine::upload_local_scene(std::shared_ptr<Loca
     {
         // Copies to GPU buffer
         mappedParamsPtr[dataIndex] = material->params;
-        fmt::println("Uploading scene. Material: {}. Color: {} {} {} {}", material->name, material->params.colorFactors.r, material->params.colorFactors.g, material->params.colorFactors.b, material->params.colorFactors.a);
 
         auto drawMaterial = std::make_shared<DrawMaterial>();
         drawMaterial->name = material->name;

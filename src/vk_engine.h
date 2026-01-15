@@ -65,31 +65,6 @@ struct ComputeEffect
 	ComputePushConstants data;
 };
 
-struct GLTFMetallic_Roughness
-{
-	MaterialPipeline opaquePipeline;
-	MaterialPipeline transparentPipeline;
-
-	VkDescriptorSetLayout materialLayout;
-
-	struct ResourceHeader
-	{
-		AllocatedImage colorImage;
-		VkSampler colorSampler;
-		AllocatedImage metalRoughImage;
-		VkSampler metalRoughSampler;
-		VkBuffer dataBuffer;
-		uint32_t dataBufferOffset;
-	};
-
-	DescriptorWriter writer;
-
-	void build_pipelines(VulkanEngine *engine);
-	void clear_resources(VkDevice device);
-
-	MaterialInstance write_material(VkDevice device, MaterialPass pass, const ResourceHeader &resources, DescriptorAllocatorGrowable &descriptorAllocator);
-};
-
 struct RenderObject
 {
 	uint32_t indexCount;
@@ -100,8 +75,6 @@ struct RenderObject
 	Bounds bounds;
 	glm::mat4 transform;
 	VkDeviceAddress vertexBufferAddress;
-
-	//MeshAsset *mesh;
 };
 
 struct DrawContext
@@ -118,13 +91,6 @@ struct EngineStats
 	int render_object_count;
 	float scene_update_time;
 	float mesh_draw_time;
-};
-
-struct MeshNode : public Node
-{
-	std::shared_ptr<MeshAsset> mesh;
-
-	virtual void Draw(const glm::mat4& topMatrix, DrawContext& ctx) override;
 };
 
 class VulkanEngine;
@@ -291,11 +257,6 @@ public:
 	std::vector<ComputeEffect> backgroundEffects;
 	int currentBackgroundEffect{0};
 
-	VkPipelineLayout _meshPipelineLayout;
-	VkPipeline _meshPipeline;
-
-	std::vector<std::shared_ptr<MeshAsset>> testMeshes;
-
 	bool resize_requested;
 
 	GPUSceneData sceneData;
@@ -312,25 +273,15 @@ public:
 
 	VkDescriptorSetLayout _singleImageDescriptorLayout;
 
-	//MaterialInstance _defaultMaterialInstance;
-	//GLTFMetallic_Roughness metalRoughMaterial;
-
 	DrawContext mainDrawContext;
-	std::unordered_map<std::string, std::shared_ptr<Node>> loadedNodes;
 
 	Camera mainCamera;
-
-	std::unordered_map<std::string, std::shared_ptr<LoadedGLTF>> loadedScenes;
 
 	EngineStats stats;
 
 	bool _consoleMode;
-	const GLTFMaterial *_inspectedMaterial{ nullptr };
 
 	StandardMaterialBuilder MaterialBuilder;
-
-	std::shared_ptr<LocalScene> _sceneTest;
-	std::shared_ptr<DrawScene> _drawSceneTest;
 
 	std::vector<std::shared_ptr<LocalScene>> _localScenes;
 	std::unordered_map<std::shared_ptr<LocalScene>, std::shared_ptr<DrawScene>> _drawScenes;
@@ -389,7 +340,6 @@ private:
 
 	void init_pipelines();
 	void init_background_pipelines();
-	void init_mesh_pipeline();
 
 	void init_default_data();
 
