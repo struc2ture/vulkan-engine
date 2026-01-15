@@ -1262,29 +1262,69 @@ MaterialInstance GLTFMetallic_Roughness::write_material(VkDevice device, Materia
 
 void MeshNode::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
 {
-    glm::mat4 nodeMatrix = topMatrix * worldTransform;
+    //glm::mat4 nodeMatrix = topMatrix * worldTransform;
 
-    for (auto &s : mesh->surfaces)
+    //for (auto &s : mesh->surfaces)
+    //{
+    //    RenderObject def;
+    //    def.indexCount = s.count;
+    //    def.firstIndex = s.startIndex;
+    //    def.indexBuffer = mesh->meshBuffers.indexBuffer.buffer;
+    //    def.material = &s.material->data;
+    //    def.bounds = s.bounds;
+    //    def.transform = nodeMatrix;
+    //    def.vertexBufferAddress = mesh->meshBuffers.vertexBufferAddress;
+    //    def.mesh = mesh.get();
+
+    //    if (s.material->data.passType == MaterialPass::Transparent) {
+    //        ctx.transparentSurfaces.push_back(def);
+    //    } else {
+    //        ctx.opaqueSurfaces.push_back(def);
+    //    }
+    //}
+
+    //// recurse down
+    //Node::Draw(topMatrix, ctx);
+}
+
+void DrawNode::RefreshTransform(const glm::mat4 &parentMatrix)
+{
+    WorldTransform = parentMatrix * LocalTransform;
+    for (auto &child : Children)
     {
-        RenderObject def;
-        def.indexCount = s.count;
-        def.firstIndex = s.startIndex;
-        def.indexBuffer = mesh->meshBuffers.indexBuffer.buffer;
-        def.material = &s.material->data;
-        def.bounds = s.bounds;
-        def.transform = nodeMatrix;
-        def.vertexBufferAddress = mesh->meshBuffers.vertexBufferAddress;
-        def.mesh = mesh.get();
+        child->RefreshTransform(WorldTransform);
+    }
+}
 
-        if (s.material->data.passType == MaterialPass::Transparent) {
-            ctx.transparentSurfaces.push_back(def);
-        } else {
-            ctx.opaqueSurfaces.push_back(def);
+void DrawNode::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
+{
+    if (Mesh != nullptr)
+    {
+        glm::mat4 nodeMatrix = topMatrix * WorldTransform;
+
+        for (auto &primitive : Mesh->primitives)
+        {
+            RenderObject def;
+            def.indexCount = primitive.count;
+            def.firstIndex = primitive.startIndex;
+            def.indexBuffer = Mesh->meshBuffers.indexBuffer.buffer;
+            def.material = &primitive.material->data;
+            def.bounds = primitive.bounds;
+            def.transform = nodeMatrix;
+            def.vertexBufferAddress = Mesh->meshBuffers.vertexBufferAddress;
+
+            if (primitive.material->data.passType == MaterialPass::Transparent) {
+                ctx.transparentSurfaces.push_back(def);
+            } else {
+                ctx.opaqueSurfaces.push_back(def);
+            }
         }
     }
 
-    // recurse down
-    Node::Draw(topMatrix, ctx);
+    for (auto &child : Children)
+    {
+        child->Draw(topMatrix, ctx);
+    }
 }
 
 void DrawScene::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
@@ -1437,17 +1477,8 @@ void VulkanEngine::imgui_render_objects()
 {
     if (ImGui::Begin("Render Objects", &_imguiRenderObjectsWindow))
     {
-        ImGui::Text("Opaque Surfaces:");
-        for (auto &s : mainDrawContext.opaqueSurfaces)
-        {
-            ImGui::Text("For %s", s.mesh->name.c_str());
-        }
-
-        ImGui::Text("Transparent Surfaces:");
-        for (auto &s : mainDrawContext.transparentSurfaces)
-        {
-            ImGui::Text("For %s", s.mesh->name.c_str());
-        }
+        ImGui::Text("Opaque Surfaces: %zu", mainDrawContext.opaqueSurfaces.size());
+        ImGui::Text("Transparent Surfaces: %zu", mainDrawContext.transparentSurfaces.size());
     }
     ImGui::End();
 }
@@ -2004,10 +2035,10 @@ std::shared_ptr<DrawScene> VulkanEngine::upload_local_scene(std::shared_ptr<Loca
 
     drawScene->descriptorPool.init(_device, loadedScene->materials.size(), sizes);
 
-    std::unordered_map<std::shared_ptr<LocalSampler>, std::shared_ptr<GLTFSampler>> samplerMap;
+    std::unordered_map<std::shared_ptr<LocalSampler>, std::shared_ptr<DrawSampler>> samplerMap;
     for (auto &sampler : loadedScene->samplers)
     {
-        auto drawSampler = std::make_shared<GLTFSampler>();
+        auto drawSampler = std::make_shared<DrawSampler>();
 
         VkSamplerCreateInfo samplerCreateInfo = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
         samplerCreateInfo.maxLod = VK_LOD_CLAMP_NONE;
@@ -2029,10 +2060,10 @@ std::shared_ptr<DrawScene> VulkanEngine::upload_local_scene(std::shared_ptr<Loca
     }
 
     const bool mipmapped = true;
-    std::unordered_map<std::shared_ptr<LocalImage>, std::shared_ptr<GLTFImage>> imageMap;
+    std::unordered_map<std::shared_ptr<LocalImage>, std::shared_ptr<DrawImage>> imageMap;
     for (auto &image : loadedScene->images)
     {
-        auto drawImage = std::make_shared<GLTFImage>();
+        auto drawImage = std::make_shared<DrawImage>();
         drawImage->name = image->name;
 
         if (image->data != nullptr)
@@ -2058,14 +2089,14 @@ std::shared_ptr<DrawScene> VulkanEngine::upload_local_scene(std::shared_ptr<Loca
 
     int dataIndex = 0;
 
-    std::unordered_map<std::shared_ptr<LocalMaterial>, std::shared_ptr<GLTFMaterial>> materialMap;
+    std::unordered_map<std::shared_ptr<LocalMaterial>, std::shared_ptr<DrawMaterial>> materialMap;
     for (auto &material : loadedScene->materials)
     {
         // Copies to GPU buffer
         mappedParamsPtr[dataIndex] = material->params;
         fmt::println("Uploading scene. Material: {}. Color: {} {} {} {}", material->name, material->params.colorFactors.r, material->params.colorFactors.g, material->params.colorFactors.b, material->params.colorFactors.a);
 
-        auto drawMaterial = std::make_shared<GLTFMaterial>();
+        auto drawMaterial = std::make_shared<DrawMaterial>();
         drawMaterial->name = material->name;
         drawMaterial->params = material->params;
 
@@ -2100,46 +2131,40 @@ std::shared_ptr<DrawScene> VulkanEngine::upload_local_scene(std::shared_ptr<Loca
         dataIndex++;
     }
 
-    std::unordered_map<std::shared_ptr<LocalMesh>, std::shared_ptr<MeshAsset>> meshMap;
+    std::unordered_map<std::shared_ptr<LocalMesh>, std::shared_ptr<DrawMesh>> meshMap;
     for (auto &mesh : loadedScene->meshes)
     {
         GPUMeshBuffers meshBuffers = uploadMesh(mesh->indices, mesh->vertices);
 
-        auto meshAsset = std::make_shared<MeshAsset>();
-        meshAsset->name = mesh->name;
-        meshAsset->meshBuffers = meshBuffers;
+        auto drawMesh = std::make_shared<DrawMesh>();
+        drawMesh->name = mesh->name;
+        drawMesh->meshBuffers = meshBuffers;
 
-        for (auto &primitive : mesh->primitives)
+        for (auto &localPrimitive : mesh->primitives)
         {
-            GeoSurface surface {};
-            surface.startIndex = primitive.startIndex;
-            surface.count = primitive.indexCount;
-            surface.bounds = primitive.bounds;
-            surface.material = materialMap[primitive.material];
-            meshAsset->surfaces.push_back(surface);
+            DrawPrimitive drawPrimitive {};
+            drawPrimitive.startIndex = localPrimitive.startIndex;
+            drawPrimitive.count = localPrimitive.indexCount;
+            drawPrimitive.bounds = localPrimitive.bounds;
+            drawPrimitive.material = materialMap[localPrimitive.material];
+            drawMesh->primitives.push_back(drawPrimitive);
         }
 
-        drawScene->meshes.push_back(meshAsset);
-        meshMap[mesh] = meshAsset;
+        drawScene->meshes.push_back(drawMesh);
+        meshMap[mesh] = drawMesh;
     }
 
-    std::unordered_map<std::shared_ptr<LocalNode>, std::shared_ptr<Node>> nodeMap;
+    std::unordered_map<std::shared_ptr<LocalNode>, std::shared_ptr<DrawNode>> nodeMap;
     for (auto &node : loadedScene->nodes)
     {
-        std::shared_ptr<Node> drawNode;
+        auto drawNode = std::make_shared<DrawNode>();
+        drawNode->NodeId = node->node_id;
+        drawNode->Name = node->name;
+        drawNode->LocalTransform = node->localTransform;
         if (node->loaded_mesh != nullptr)
         {
-            drawNode = std::make_shared<MeshNode>();
-            static_cast<MeshNode *>(drawNode.get())->mesh = meshMap[node->loaded_mesh];
+            drawNode->Mesh = meshMap[node->loaded_mesh];
         }
-        else
-        {
-            drawNode = std::make_shared<Node>();
-        }
-
-        drawNode->node_id = node->node_id;
-        drawNode->name = node->name;
-        drawNode->localTransform = node->localTransform;
 
         drawScene->nodes.push_back(drawNode);
         nodeMap[node] = drawNode;
@@ -2150,19 +2175,19 @@ std::shared_ptr<DrawScene> VulkanEngine::upload_local_scene(std::shared_ptr<Loca
         auto &loadedNode = loadedScene->nodes[i];
         auto &drawNode = drawScene->nodes[i];
 
-        drawNode->parent = nodeMap[loadedNode->parent.lock()];
+        drawNode->Parent = nodeMap[loadedNode->parent.lock()];
         for (auto &c : loadedNode->children)
         {
-            drawNode->children.push_back(nodeMap[c]);
+            drawNode->Children.push_back(nodeMap[c]);
         }
     }
 
     for (auto &drawNode : drawScene->nodes)
     {
-        if (drawNode->parent.lock() == nullptr)
+        if (drawNode->Parent.lock() == nullptr)
         {
             drawScene->topNodes.push_back(drawNode);
-            drawNode->refreshTransform(glm::mat4{ 1.0f });
+            drawNode->RefreshTransform(glm::mat4{ 1.0f });
         }
     }
 

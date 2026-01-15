@@ -101,7 +101,7 @@ struct RenderObject
 	glm::mat4 transform;
 	VkDeviceAddress vertexBufferAddress;
 
-	MeshAsset *mesh;
+	//MeshAsset *mesh;
 };
 
 struct DrawContext
@@ -129,15 +129,68 @@ struct MeshNode : public Node
 
 class VulkanEngine;
 
+struct DrawImage
+{
+	std::string name;
+	AllocatedImage image;
+};
+
+struct DrawSampler
+{
+	std::string name;
+	VkSampler sampler;
+};
+
+struct DrawMaterial
+{
+	std::string name;
+	std::shared_ptr<DrawImage> colorImage;
+	std::shared_ptr<DrawSampler> colorSampler;
+	MaterialParameters params;
+	MaterialInstance data;
+};
+
+struct DrawPrimitive {
+	uint32_t startIndex;
+	uint32_t count;
+	Bounds bounds;
+	std::shared_ptr<DrawMaterial> material;
+};
+
+struct DrawMesh {
+	std::string name;
+	std::vector<DrawPrimitive> primitives;
+	GPUMeshBuffers meshBuffers;
+};
+
+struct DrawNode : public IRenderable
+{
+	uint64_t NodeId;
+	std::string Name;
+
+	// parent pointer must be a weak pointer to avoid circular dependencies
+	std::weak_ptr<DrawNode> Parent;
+	std::vector<std::shared_ptr<DrawNode>> Children;
+
+	glm::mat4 LocalTransform;
+	glm::mat4 WorldTransform;
+
+	std::shared_ptr<DrawMesh> Mesh;
+
+	void RefreshTransform(const glm::mat4 &parentMatrix);
+
+	void Draw(const glm::mat4 &topMatrix, DrawContext &ctx) override;
+};
+
 struct DrawScene : public IRenderable
 {
-	std::vector<std::shared_ptr<MeshAsset>> meshes;
-    std::vector<std::shared_ptr<Node>> nodes;
-    std::vector<std::shared_ptr<GLTFImage>> images;
-    std::vector<std::shared_ptr<GLTFMaterial>> materials;
-    std::vector<std::shared_ptr<GLTFSampler>> samplers;
+	std::vector<std::shared_ptr<DrawMesh>> meshes;
+    std::vector<std::shared_ptr<DrawNode>> nodes;
+    std::vector<std::shared_ptr<DrawImage>> images;
+    std::vector<std::shared_ptr<DrawMaterial>> materials;
+    std::vector<std::shared_ptr<DrawSampler>> samplers;
 
-	std::vector<std::shared_ptr<Node>> topNodes;
+	std::vector<std::shared_ptr<DrawNode>> topNodes;
 
 	DescriptorAllocatorGrowable descriptorPool;
 
