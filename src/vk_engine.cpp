@@ -22,15 +22,8 @@
 
 constexpr bool USE_VALIDATION_LAYERS = true;
 
-VulkanEngine* loadedEngine = nullptr;
-
-VulkanEngine& VulkanEngine::Get() { return *loadedEngine; }
-
 void VulkanEngine::init()
 {
-    assert(loadedEngine == nullptr);
-    loadedEngine = this;
-
     SDL_Init(SDL_INIT_VIDEO);
 
     SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
@@ -736,8 +729,6 @@ void VulkanEngine::cleanup()
 
         SDL_DestroyWindow(_window);
     }
-
-    loadedEngine = nullptr;
 }
 
 void VulkanEngine::draw()

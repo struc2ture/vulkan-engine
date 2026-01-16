@@ -122,9 +122,9 @@ struct ImguiPreviewTexture
 	ImTextureID texture_id;
 };
 
-class VulkanEngine {
+class VulkanEngine
+{
 public:
-
 	bool _isInitialized{ false };
 	int _frameNumber {0};
 	bool stop_rendering{ false };
@@ -215,8 +215,6 @@ public:
 	bool _imguiCameraInspectorWindow{ false };
 
 	void update_scene();
-
-	static VulkanEngine& Get();
 
 	void init();
 
