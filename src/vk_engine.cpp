@@ -406,24 +406,24 @@ void VulkanEngine::init_background_pipelines()
 
     VkPushConstantRange pushConstant{};
     pushConstant.offset = 0;
-    pushConstant.size = sizeof(ComputePushConstants);
+    pushConstant.size = sizeof(BackgroundPushConstants);
     pushConstant.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
     computeLayout.pPushConstantRanges = &pushConstant;
     computeLayout.pushConstantRangeCount = 1;
 
-    VK_CHECK(vkCreatePipelineLayout(_device, &computeLayout, nullptr, &_gradientPipelineLayout));
+    VK_CHECK(vkCreatePipelineLayout(_device, &computeLayout, nullptr, &_backgroundPipelineLayout));
 
     VkShaderModule gradientShader;
     if (!vkutil::load_shader_module("../../shaders/gradient_color.comp.spv", _device, &gradientShader))
     {
-        fmt::print("Error when building the compute shader.\n");
+        fmt::print("Error when loading the gradient_color.comp shader.\n");
     }
 
     VkShaderModule skyShader;
     if (!vkutil::load_shader_module("../../shaders/sky.comp.spv", _device, &skyShader))
     {
-        fmt::print("Error when building the compute shader.\n");
+        fmt::print("Error when loading the sky.comp shader.\n");
     }
 
     VkPipelineShaderStageCreateInfo stageInfo{};
@@ -436,40 +436,36 @@ void VulkanEngine::init_background_pipelines()
     VkComputePipelineCreateInfo computePipelineCreateInfo{};
     computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     computePipelineCreateInfo.pNext = nullptr;
-    computePipelineCreateInfo.layout = _gradientPipelineLayout;
+    computePipelineCreateInfo.layout = _backgroundPipelineLayout;
     computePipelineCreateInfo.stage = stageInfo;
 
-    ComputeEffect gradient;
-    gradient.layout = _gradientPipelineLayout;
-    gradient.name = "gradient";
-    gradient.data = {};
+    BackgroundEffect gradientEffect {};
+    gradientEffect.layout = _backgroundPipelineLayout;
+    gradientEffect.name = "Gradient";
+    gradientEffect.data.data1 = glm::vec4(1, 0, 0, 1);
+    gradientEffect.data.data2 = glm::vec4(0, 0, 1, 1);
 
-    gradient.data.data1 = glm::vec4(1, 0, 0, 1);
-    gradient.data.data2 = glm::vec4(0, 0, 1, 1);
-
-    VK_CHECK(vkCreateComputePipelines(_device, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr, &gradient.pipeline));
+    VK_CHECK(vkCreateComputePipelines(_device, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr, &gradientEffect.pipeline));
 
     computePipelineCreateInfo.stage.module = skyShader;
 
-    ComputeEffect sky;
-    sky.layout = _gradientPipelineLayout;
-    sky.name = "sky";
-    sky.data = {};
+    BackgroundEffect skyEffect {};
+    skyEffect.layout = _backgroundPipelineLayout;
+    skyEffect.name = "Sky";
+    skyEffect.data.data1 = glm::vec4(0.1, 0.2, 0.4, 0.97);
     
-    sky.data.data1 = glm::vec4(0.1, 0.2, 0.4, 0.97);
-    
-    VK_CHECK(vkCreateComputePipelines(_device, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr, &sky.pipeline));
+    VK_CHECK(vkCreateComputePipelines(_device, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr, &skyEffect.pipeline));
 
-    backgroundEffects.push_back(gradient);
-    backgroundEffects.push_back(sky);
+    backgroundEffects.push_back(gradientEffect);
+    backgroundEffects.push_back(skyEffect);
 
     vkDestroyShaderModule(_device, gradientShader, nullptr);
     vkDestroyShaderModule(_device, skyShader, nullptr);
 
     _mainDeletionQueue.push_function([=]() {
-        vkDestroyPipelineLayout(_device, _gradientPipelineLayout, nullptr);
-        vkDestroyPipeline(_device, sky.pipeline, nullptr);
-        vkDestroyPipeline(_device, gradient.pipeline, nullptr);
+        vkDestroyPipelineLayout(_device, _backgroundPipelineLayout, nullptr);
+        vkDestroyPipeline(_device, skyEffect.pipeline, nullptr);
+        vkDestroyPipeline(_device, gradientEffect.pipeline, nullptr);
     });
 }
 
@@ -840,13 +836,13 @@ void VulkanEngine::draw()
 
 void VulkanEngine::draw_background(VkCommandBuffer cmd)
 {
-    ComputeEffect& effect = backgroundEffects[currentBackgroundEffect];
+    BackgroundEffect& effect = backgroundEffects[currentBackgroundEffect];
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, effect.pipeline);
 
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _gradientPipelineLayout, 0, 1, &_drawImageDescriptors, 0, nullptr);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _backgroundPipelineLayout, 0, 1, &_drawImageDescriptors, 0, nullptr);
 
-    vkCmdPushConstants(cmd, _gradientPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConstants), &effect.data);
+    vkCmdPushConstants(cmd, _backgroundPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(BackgroundPushConstants), &effect.data);
 
     vkCmdDispatch(cmd, std::ceil(_drawExtent.width / 16.0), std::ceil(_drawExtent.height / 16.0), 1);
 }
@@ -1241,15 +1237,25 @@ void VulkanEngine::imgui_background()
     {
         ImGui::SliderFloat("Render Scale", &renderScale, 0.3f, 1.0f);
 
-        ComputeEffect& selected = backgroundEffects[currentBackgroundEffect];
+        BackgroundEffect& selectedEffect = backgroundEffects[currentBackgroundEffect];
 
-        ImGui::Text("Selected effect: ", selected.name);
-        ImGui::SliderInt("Effect Index", &currentBackgroundEffect, 0, backgroundEffects.size() - 1);
+        if (ImGui::BeginCombo("Effect##backgroundEffectCombo", selectedEffect.name.c_str()))
+        {
+            size_t effectI = 0;
+            for (auto &effect : backgroundEffects)
+            {
+                const bool isSelected = currentBackgroundEffect == effectI;
+                if (ImGui::Selectable(effect.name.c_str(), isSelected)) currentBackgroundEffect = effectI;
+                if (isSelected) ImGui::SetItemDefaultFocus();
+                effectI++;
+            }
+            ImGui::EndCombo();
+        }
 
-        ImGui::InputFloat4("data1", (float *) &selected.data.data1);
-        ImGui::InputFloat4("data2", (float *) &selected.data.data2);
-        ImGui::InputFloat4("data3", (float *) &selected.data.data3);
-        ImGui::InputFloat4("data4", (float *) &selected.data.data4);
+        ImGui::DragFloat4("data1", (float *) &selectedEffect.data.data1, 0.01f, 0.0f, 1.0f);
+        ImGui::DragFloat4("data2", (float *) &selectedEffect.data.data2, 0.01f, 0.0f, 1.0f);
+        ImGui::DragFloat4("data3", (float *) &selectedEffect.data.data3, 0.01f, 0.0f, 1.0f);
+        ImGui::DragFloat4("data4", (float *) &selectedEffect.data.data4, 0.01f, 0.0f, 1.0f);
     }
     ImGui::End();
 }

@@ -47,7 +47,7 @@ struct FrameData
 
 constexpr unsigned int FRAME_OVERLAP = 2;
 
-struct ComputePushConstants
+struct BackgroundPushConstants
 {
 	glm::vec4 data1;
 	glm::vec4 data2;
@@ -55,14 +55,14 @@ struct ComputePushConstants
 	glm::vec4 data4;
 };
 
-struct ComputeEffect
+struct BackgroundEffect
 {
-	const char *name;
+	std::string name;
 
 	VkPipeline pipeline;
 	VkPipelineLayout layout;
 
-	ComputePushConstants data;
+	BackgroundPushConstants data;
 };
 
 struct RenderObject
@@ -169,8 +169,8 @@ public:
 	VkDescriptorSet _drawImageDescriptors;
 	VkDescriptorSetLayout _drawImageDescriptorLayout;
 
-	VkPipeline _gradientPipeline;
-	VkPipelineLayout _gradientPipelineLayout;
+	VkPipeline _backgroundPipeline;
+	VkPipelineLayout _backgroundPipelineLayout;
 
 	VkFence _immFence;
 	VkCommandBuffer _immCommandBuffer;
@@ -178,8 +178,8 @@ public:
 
 	void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
 
-	std::vector<ComputeEffect> backgroundEffects;
-	int currentBackgroundEffect{0};
+	std::vector<BackgroundEffect> backgroundEffects;
+	size_t currentBackgroundEffect{0};
 
 	bool resize_requested;
 
