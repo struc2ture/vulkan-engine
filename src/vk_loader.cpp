@@ -278,24 +278,24 @@ std::optional<std::shared_ptr<Scene>> load_scene(VulkanEngine *engine, std::stri
         scene->images.push_back(newImage);
     }
 
-    for (fastgltf::Material &mat : gltf.materials)
+    for (fastgltf::Material &material : gltf.materials)
     {
         MaterialParameters material_params {};
-        material_params.colorFactors.r = mat.pbrData.baseColorFactor[0];
-        material_params.colorFactors.g = mat.pbrData.baseColorFactor[1];
-        material_params.colorFactors.b = mat.pbrData.baseColorFactor[2];
-        material_params.colorFactors.a = mat.pbrData.baseColorFactor[3];
+        material_params.colorFactors.r = material.pbrData.baseColorFactor[0];
+        material_params.colorFactors.g = material.pbrData.baseColorFactor[1];
+        material_params.colorFactors.b = material.pbrData.baseColorFactor[2];
+        material_params.colorFactors.a = material.pbrData.baseColorFactor[3];
 
-        material_params.metal_rough_factors.r = mat.pbrData.metallicFactor;
-        material_params.metal_rough_factors.g = mat.pbrData.roughnessFactor;
+        material_params.metal_rough_factors.r = material.pbrData.metallicFactor;
+        material_params.metal_rough_factors.g = material.pbrData.roughnessFactor;
 
         auto newMaterial = std::make_shared<SceneMaterial>();
-        newMaterial->name = mat.name.c_str();
-        newMaterial->hasColorImage = mat.pbrData.baseColorTexture.has_value();
+        newMaterial->name = material.name.c_str();
+        newMaterial->hasColorImage = material.pbrData.baseColorTexture.has_value();
         if (newMaterial->hasColorImage)
         {
-            size_t imageI = gltf.textures[mat.pbrData.baseColorTexture.value().textureIndex].imageIndex.value();
-            size_t samplerI = gltf.textures[mat.pbrData.baseColorTexture.value().textureIndex].samplerIndex.value();
+            size_t imageI = gltf.textures[material.pbrData.baseColorTexture.value().textureIndex].imageIndex.value();
+            size_t samplerI = gltf.textures[material.pbrData.baseColorTexture.value().textureIndex].samplerIndex.value();
             newMaterial->colorImage = scene->images[imageI];
             newMaterial->colorSampler = scene->samplers[samplerI];
         }
@@ -529,23 +529,23 @@ void Scene::SyncToGPU()
     materialDataBuffer = engine->create_buffer(sizeof(MaterialParameters) * materials.size(), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
     auto mappedParamsPtr = (MaterialParameters *)materialDataBuffer.info.pMappedData;
 
-    int dataIndex = 0;
+    int materialI = 0;
 
     for (auto &material : materials)
     {
-        mappedParamsPtr[dataIndex] = material->params;
+        mappedParamsPtr[materialI] = material->params;
 
-        StandardMaterialResourceHeader resourceHeader;
-        resourceHeader.ColorImage = material->hasColorImage ? material->colorImage->allocatedImage : engine->_whiteImage;
-        resourceHeader.ColorSampler = material->hasColorImage ? material->colorSampler->vkSampler : engine->_defaultSamplerLinear;
-        resourceHeader.MetalRoughImage = engine->_whiteImage;
-        resourceHeader.MetalRoughSampler = engine->_defaultSamplerLinear;
-        resourceHeader.MaterialParamDataBuffer = materialDataBuffer.buffer;
-        resourceHeader.MaterialParamDataBufferOffset = dataIndex * sizeof(MaterialParameters);
+        StandardMaterial::Resources resources {};
+        resources.ColorImage = material->hasColorImage ? material->colorImage->allocatedImage : engine->_whiteImage;
+        resources.ColorSampler = material->hasColorImage ? material->colorSampler->vkSampler : engine->_defaultSamplerLinear;
+        resources.MetalRoughImage = engine->_whiteImage;
+        resources.MetalRoughSampler = engine->_defaultSamplerLinear;
+        resources.MaterialParamDataBuffer = materialDataBuffer.buffer;
+        resources.MaterialParamDataBufferOffset = materialI * sizeof(MaterialParameters);
 
-        material->materialInstance = engine->MaterialBuilder.WriteMaterial(engine->_device, material->passType, resourceHeader, descriptorPool);
+        material->materialInstance = engine->MaterialBuilder.InstantiateMaterial(engine->_device, material->passType, resources, descriptorPool);
 
-        dataIndex++;
+        materialI++;
     }
 
     for (auto &mesh : meshes)

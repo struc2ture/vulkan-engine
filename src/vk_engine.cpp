@@ -722,7 +722,7 @@ void VulkanEngine::cleanup()
 
         _localScenes.clear();
 
-        MaterialBuilder.ClearResources(_device);
+        MaterialBuilder.DestroyPipelines(_device);
 
 
         for (int i = 0; i < FRAME_OVERLAP; i++)
@@ -1060,7 +1060,7 @@ void VulkanEngine::run()
     }
 }
 
-void StandardMaterialBuilder::BuildPipelines(VulkanEngine *engine)
+void StandardMaterial::BuildPipelines(VulkanEngine *engine)
 {
     VkShaderModule meshFragShader;
     if (!vkutil::load_shader_module("../../shaders/mesh.frag.spv", engine->_device, &meshFragShader))
@@ -1084,9 +1084,9 @@ void StandardMaterialBuilder::BuildPipelines(VulkanEngine *engine)
     layoutBuilder.add_binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
     layoutBuilder.add_binding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
-    MaterialLayout = layoutBuilder.build(engine->_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+    DescriptorLayout = layoutBuilder.build(engine->_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
 
-    VkDescriptorSetLayout layouts[] = { engine->_gpuSceneDataDescriptorLayout, MaterialLayout };
+    VkDescriptorSetLayout layouts[] = { engine->_gpuSceneDataDescriptorLayout, DescriptorLayout };
 
     VkPipelineLayoutCreateInfo mesh_layout_info = vkinit::pipeline_layout_create_info();
     mesh_layout_info.setLayoutCount = 2;
@@ -1129,15 +1129,15 @@ void StandardMaterialBuilder::BuildPipelines(VulkanEngine *engine)
     vkDestroyShaderModule(engine->_device, meshVertexShader, nullptr);
 }
 
-void StandardMaterialBuilder::ClearResources(VkDevice device)
+void StandardMaterial::DestroyPipelines(VkDevice device)
 {
     vkDestroyPipelineLayout(device, TransparentPipeline.layout, nullptr); // Transparent and Opaque pipelines share the same layout
     vkDestroyPipeline(device, TransparentPipeline.pipeline, nullptr);
     vkDestroyPipeline(device, OpaquePipeline.pipeline, nullptr);
-    vkDestroyDescriptorSetLayout(device, MaterialLayout, nullptr);
+    vkDestroyDescriptorSetLayout(device, DescriptorLayout, nullptr);
 }
 
-MaterialInstance StandardMaterialBuilder::WriteMaterial(VkDevice device, MaterialPass pass, const StandardMaterialResourceHeader &resources, DescriptorAllocatorGrowable &descriptorAllocator)
+MaterialInstance StandardMaterial::InstantiateMaterial(VkDevice device, MaterialPass pass, const Resources &resources, DescriptorAllocatorGrowable &descriptorAllocator)
 {
     MaterialInstance matData;
     matData.passType = pass;
@@ -1150,7 +1150,7 @@ MaterialInstance StandardMaterialBuilder::WriteMaterial(VkDevice device, Materia
         matData.pipeline = &OpaquePipeline;
     }
 
-    matData.materialSet = descriptorAllocator.allocate(device, MaterialLayout);
+    matData.materialSet = descriptorAllocator.allocate(device, DescriptorLayout);
 
     Writer.clear();
     Writer.write_buffer(0, resources.MaterialParamDataBuffer, sizeof(MaterialParameters), resources.MaterialParamDataBufferOffset, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);

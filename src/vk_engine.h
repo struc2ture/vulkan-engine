@@ -95,29 +95,29 @@ struct EngineStats
 
 class VulkanEngine;
 
-struct StandardMaterialResourceHeader
+struct StandardMaterial
 {
-	AllocatedImage ColorImage;
-	VkSampler ColorSampler;
-	AllocatedImage MetalRoughImage;
-	VkSampler MetalRoughSampler;
-	VkBuffer MaterialParamDataBuffer;
-	uint32_t MaterialParamDataBufferOffset;
-};
+	struct Resources
+	{
+		AllocatedImage ColorImage;
+		VkSampler ColorSampler;
+		AllocatedImage MetalRoughImage;
+		VkSampler MetalRoughSampler;
+		VkBuffer MaterialParamDataBuffer;
+		uint32_t MaterialParamDataBufferOffset;
+	};
 
-struct StandardMaterialBuilder
-{
 	MaterialPipeline OpaquePipeline;
 	MaterialPipeline TransparentPipeline;
 
-	VkDescriptorSetLayout MaterialLayout;
+	VkDescriptorSetLayout DescriptorLayout;
 
 	DescriptorWriter Writer;
 
 	void BuildPipelines(VulkanEngine *engine);
-	void ClearResources(VkDevice device);
+	void DestroyPipelines(VkDevice device);
 
-	MaterialInstance WriteMaterial(VkDevice device, MaterialPass pass, const StandardMaterialResourceHeader &resources, DescriptorAllocatorGrowable &descriptorAllocator);
+	MaterialInstance InstantiateMaterial(VkDevice device, MaterialPass pass, const Resources &resources, DescriptorAllocatorGrowable &descriptorAllocator);
 };
 
 struct ImguiPreviewTexture
@@ -205,7 +205,7 @@ public:
 
 	bool _consoleMode;
 
-	StandardMaterialBuilder MaterialBuilder;
+	StandardMaterial MaterialBuilder;
 
 	std::vector<std::shared_ptr<Scene>> _localScenes;
 	std::weak_ptr<Scene> _inspectedScene;
