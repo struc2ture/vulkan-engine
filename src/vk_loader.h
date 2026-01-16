@@ -70,7 +70,9 @@ struct SceneMesh
     GPUMeshBuffers meshBuffer;
 };
 
-struct SceneNode : public IRenderable
+struct DrawContext;
+
+struct SceneNode
 {
     std::string Name;
     uint64_t NodeId;
@@ -89,10 +91,10 @@ struct SceneNode : public IRenderable
     std::shared_ptr<SceneMesh> Mesh;
 
     void RefreshTransform(const glm::mat4 &parentMatrix);
-    void Draw(const glm::mat4 &topMatrix, DrawContext &ctx) override;
+    void Draw(const glm::mat4 &topMatrix, DrawContext &ctx);
 };
 
-struct Scene : public IRenderable
+struct Scene
 {
     std::string path;
     std::string name;
@@ -110,7 +112,7 @@ struct Scene : public IRenderable
 
     VulkanEngine *engine;
 
-    virtual void Draw(const glm::mat4 &topMatrix, DrawContext &ctx) override;
+    void Draw(const glm::mat4 &topMatrix, DrawContext &ctx);
 
     Scene(std::string path, std::string name, VulkanEngine *engine);
 
