@@ -6,6 +6,7 @@
 #include "vk_descriptors.h"
 #include "vk_loader.h"
 #include "vk_scene.h"
+#include "vk_material.h"
 #include "camera.h"
 
 struct DeletionQueue
@@ -90,31 +91,6 @@ struct EngineStats
 };
 
 class VulkanEngine;
-
-struct StandardMaterial
-{
-	struct Resources
-	{
-		AllocatedImage ColorImage;
-		VkSampler ColorSampler;
-		AllocatedImage MetalRoughImage;
-		VkSampler MetalRoughSampler;
-		VkBuffer MaterialParamDataBuffer;
-		uint32_t MaterialParamDataBufferOffset;
-	};
-
-	MaterialPipeline OpaquePipeline;
-	MaterialPipeline TransparentPipeline;
-
-	VkDescriptorSetLayout DescriptorLayout;
-
-	DescriptorWriter Writer;
-
-	void BuildPipelines(VulkanEngine *engine);
-	void DestroyPipelines(VkDevice device);
-
-	MaterialInstance InstantiateMaterial(VkDevice device, MaterialPass pass, const Resources &resources, DescriptorAllocatorGrowable &descriptorAllocator);
-};
 
 struct ImguiPreviewTexture
 {

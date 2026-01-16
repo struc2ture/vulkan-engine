@@ -12,6 +12,7 @@
 #include "vk_engine.h"
 #include "vk_initializers.h"
 #include "vk_scene.h"
+#include "vk_material.h"
 
 VkFilter extract_filter(fastgltf::Filter filter)
 {

@@ -77,30 +77,3 @@ struct SceneCommonData
     glm::vec4 sunlightDirection; // w for sun power
     glm::vec4 sunlightColor;
 };
-
-enum class MaterialPass : uint8_t
-{
-    MainColor,
-    Transparent,
-    Other
-};
-
-struct MaterialParameters
-{
-    glm::vec4 colorFactors;
-    glm::vec4 metal_rough_factors;
-    glm::vec4 extra[14];
-};
-
-struct MaterialPipeline
-{
-    VkPipeline pipeline;
-    VkPipelineLayout layout;
-};
-
-struct MaterialInstance
-{
-    MaterialPipeline *pipeline;
-    VkDescriptorSet materialSet;
-    MaterialPass passType;
-};

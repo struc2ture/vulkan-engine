@@ -4,6 +4,7 @@
 
 #include "vk_types.h"
 #include "vk_descriptors.h"
+#include "vk_material.h"
 
 struct Bounds
 {

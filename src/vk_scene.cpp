@@ -2,6 +2,7 @@
 
 #include "vk_types.h"
 #include "vk_engine.h"
+#include "vk_material.h"
 
 Scene::Scene(std::string path_, std::string name_, VulkanEngine *engine_)
 {

@@ -1,3 +1,5 @@
+#pragma once
+
 #include <SDL_events.h>
 #include <vk_types.h>
 
