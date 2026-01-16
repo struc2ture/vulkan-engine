@@ -183,9 +183,9 @@ public:
 
 	bool resize_requested;
 
-	GPUSceneData sceneData;
+	SceneCommonData sceneData;
 
-	VkDescriptorSetLayout _gpuSceneDataDescriptorLayout;
+	VkDescriptorSetLayout _sceneCommonDataDescriptorLayout;
 
 	AllocatedImage _whiteImage;
 	AllocatedImage _blackImage;
@@ -194,8 +194,6 @@ public:
 
 	VkSampler _defaultSamplerLinear;
 	VkSampler _defaultSamplerNearest;
-
-	VkDescriptorSetLayout _singleImageDescriptorLayout;
 
 	DrawContext mainDrawContext;
 

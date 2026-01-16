@@ -287,14 +287,8 @@ void VulkanEngine::init_descriptors()
 
     {
         DescriptorLayoutBuilder builder;
-        builder.add_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-        _singleImageDescriptorLayout = builder.build(_device, VK_SHADER_STAGE_FRAGMENT_BIT);
-    }
-
-    {
-        DescriptorLayoutBuilder builder;
         builder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-        _gpuSceneDataDescriptorLayout = builder.build(_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+        _sceneCommonDataDescriptorLayout = builder.build(_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
     }
 
     _drawImageDescriptors = globalDescriptorAllocator.allocate(_device, _drawImageDescriptorLayout);
@@ -308,8 +302,7 @@ void VulkanEngine::init_descriptors()
     _mainDeletionQueue.push_function([&]() {
         globalDescriptorAllocator.destroy_pools(_device);
         vkDestroyDescriptorSetLayout(_device, _drawImageDescriptorLayout, nullptr);
-        vkDestroyDescriptorSetLayout(_device, _gpuSceneDataDescriptorLayout, nullptr);
-        vkDestroyDescriptorSetLayout(_device, _singleImageDescriptorLayout, nullptr);
+        vkDestroyDescriptorSetLayout(_device, _sceneCommonDataDescriptorLayout, nullptr);
     });
 
     for (int i = 0; i < FRAME_OVERLAP; i++)
@@ -866,20 +859,25 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 
     auto start = std::chrono::system_clock::now();
 
-    // Global scene data buffer & descriptor
-    AllocatedBuffer gpuSceneDataBuffer = create_buffer(sizeof(GPUSceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-    get_current_frame()._deletionQueue.push_function([=, this]() {
-        destroy_buffer(gpuSceneDataBuffer);
-        });
+    // Scene common data
+    VkDescriptorSet sceneCommonDataDescriptorSet;
+    {
+        // TODO: Why is this recreated every frame?
+        AllocatedBuffer sceneCommonDataBuffer = create_buffer(sizeof(SceneCommonData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+        get_current_frame()._deletionQueue.push_function([=, this]() {
+            destroy_buffer(sceneCommonDataBuffer);
+            });
 
-    GPUSceneData *sceneUniformData = (GPUSceneData *)gpuSceneDataBuffer.allocation->GetMappedData();
-    *sceneUniformData = sceneData;
+        SceneCommonData *sceneUniformData = (SceneCommonData *)sceneCommonDataBuffer.allocation->GetMappedData();
+        *sceneUniformData = sceneData;
 
-    VkDescriptorSet globalDescriptor = get_current_frame()._frameDescriptors.allocate(_device, _gpuSceneDataDescriptorLayout);
+        sceneCommonDataDescriptorSet = get_current_frame()._frameDescriptors.allocate(_device, _sceneCommonDataDescriptorLayout);
 
-    DescriptorWriter writer;
-    writer.write_buffer(0, gpuSceneDataBuffer.buffer, sizeof(GPUSceneData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-    writer.update_set(_device, globalDescriptor);
+        DescriptorWriter writer;
+        writer.write_buffer(0, sceneCommonDataBuffer.buffer, sizeof(SceneCommonData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+        writer.update_set(_device, sceneCommonDataDescriptorSet);
+
+    }
 
     // sort opaque geometry by material and mesh to minimize pipeline state switches
     std::vector<uint32_t> opaque_draws;
@@ -926,7 +924,7 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
             {
                 lastPipeline = r.material->pipeline;
                 vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, r.material->pipeline->pipeline);
-                vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, r.material->pipeline->layout, 0, 1, &globalDescriptor, 0, nullptr);
+                vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, r.material->pipeline->layout, 0, 1, &sceneCommonDataDescriptorSet, 0, nullptr);
                 
                 VkViewport viewport = {};
                 viewport.x = 0;
@@ -956,10 +954,10 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
             vkCmdBindIndexBuffer(cmd, r.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
         }
 
-        GPUDrawPushConstants pushConstants;
+        GeometryPushConstants pushConstants;
         pushConstants.worldMatrix = r.transform;
         pushConstants.vertexBuffer = r.vertexBufferAddress;
-        vkCmdPushConstants(cmd, r.material->pipeline->layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
+        vkCmdPushConstants(cmd, r.material->pipeline->layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GeometryPushConstants), &pushConstants);
 
         vkCmdDrawIndexed(cmd, r.indexCount, 1, r.firstIndex, 0, 0);
 
@@ -1041,7 +1039,6 @@ void VulkanEngine::run()
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
 
-
         if (_consoleMode)
         {
             imgui_uis();
@@ -1076,7 +1073,7 @@ void StandardMaterial::BuildPipelines(VulkanEngine *engine)
 
     VkPushConstantRange matrixRange{};
     matrixRange.offset = 0;
-    matrixRange.size = sizeof(GPUDrawPushConstants);
+    matrixRange.size = sizeof(GeometryPushConstants);
     matrixRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
     DescriptorLayoutBuilder layoutBuilder;
@@ -1086,7 +1083,7 @@ void StandardMaterial::BuildPipelines(VulkanEngine *engine)
 
     DescriptorLayout = layoutBuilder.build(engine->_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
 
-    VkDescriptorSetLayout layouts[] = { engine->_gpuSceneDataDescriptorLayout, DescriptorLayout };
+    VkDescriptorSetLayout layouts[] = { engine->_sceneCommonDataDescriptorLayout, DescriptorLayout };
 
     VkPipelineLayoutCreateInfo mesh_layout_info = vkinit::pipeline_layout_create_info();
     mesh_layout_info.setLayoutCount = 2;

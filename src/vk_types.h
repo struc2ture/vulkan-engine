@@ -62,13 +62,13 @@ struct GPUMeshBuffers
     VkDeviceAddress vertexBufferAddress;
 };
 
-struct GPUDrawPushConstants
+struct GeometryPushConstants
 {
     glm::mat4 worldMatrix;
     VkDeviceAddress vertexBuffer;
 };
 
-struct GPUSceneData
+struct SceneCommonData
 {
     glm::mat4 view;
     glm::mat4 proj;
