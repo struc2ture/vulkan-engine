@@ -120,82 +120,6 @@ struct StandardMaterialBuilder
 	MaterialInstance WriteMaterial(VkDevice device, MaterialPass pass, const StandardMaterialResourceHeader &resources, DescriptorAllocatorGrowable &descriptorAllocator);
 };
 
-struct DrawImage
-{
-	std::string name;
-	AllocatedImage image;
-};
-
-struct DrawSampler
-{
-	std::string name;
-	VkSampler sampler;
-};
-
-struct DrawMaterial
-{
-	std::string name;
-	std::shared_ptr<DrawImage> colorImage;
-	std::shared_ptr<DrawSampler> colorSampler;
-	MaterialParameters params;
-	MaterialInstance data;
-};
-
-struct DrawPrimitive {
-	uint32_t startIndex;
-	uint32_t count;
-	Bounds bounds;
-	std::shared_ptr<DrawMaterial> material;
-};
-
-struct DrawMesh {
-	std::string name;
-	std::vector<DrawPrimitive> primitives;
-	GPUMeshBuffers meshBuffers;
-};
-
-struct DrawNode : public IRenderable
-{
-	uint64_t NodeId;
-	std::string Name;
-
-	// parent pointer must be a weak pointer to avoid circular dependencies
-	std::weak_ptr<DrawNode> Parent;
-	std::vector<std::shared_ptr<DrawNode>> Children;
-
-	glm::mat4 LocalTransform;
-	glm::mat4 WorldTransform;
-
-	std::shared_ptr<DrawMesh> Mesh;
-
-	void RefreshTransform(const glm::mat4 &parentMatrix);
-
-	void Draw(const glm::mat4 &topMatrix, DrawContext &ctx) override;
-};
-
-struct DrawScene : public IRenderable
-{
-	std::vector<std::shared_ptr<DrawMesh>> meshes;
-    std::vector<std::shared_ptr<DrawNode>> nodes;
-    std::vector<std::shared_ptr<DrawImage>> images;
-    std::vector<std::shared_ptr<DrawMaterial>> materials;
-    std::vector<std::shared_ptr<DrawSampler>> samplers;
-
-	std::vector<std::shared_ptr<DrawNode>> topNodes;
-
-	DescriptorAllocatorGrowable descriptorPool;
-
-	AllocatedBuffer materialDataBuffer;
-
-	VulkanEngine *creator;
-
-	virtual void Draw(const glm::mat4 &topMatrix, DrawContext &ctx) override;
-
-	~DrawScene() { clearGPUData(); };
-
-	void clearGPUData();
-};
-
 struct ImguiPreviewTexture
 {
 	AllocatedImage image;
@@ -319,8 +243,6 @@ public:
 	AllocatedImage create_image(void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
 	void destroy_image(const AllocatedImage &img);
 	void destroy_buffer(const AllocatedBuffer &buffer);
-
-	std::shared_ptr<DrawScene> upload_local_scene(std::shared_ptr<LocalScene> loaded_scene);
 
 private:
 	std::vector<VkSemaphore> _renderSemaphores;
