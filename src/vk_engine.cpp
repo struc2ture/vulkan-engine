@@ -1436,6 +1436,8 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
 
         ImGui::Text("");
 
+        bool sceneDirty = false;
+
         if (ImGui::TreeNode("Meshes", "Meshes: %d", scene->meshes.size()))
         {
             for (auto &mesh : scene->meshes)
@@ -1448,9 +1450,8 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
                     {
                         for (auto &vertex : mesh->vertices)
                         {
-                            //ImGui::Text("%d: %.1f, %.1f, %.1f", vertI++, vertex.position.x, vertex.position.y, vertex.position.z);
                             ImGui::PushID(vertI++);
-                            ImGui::DragFloat3("", &vertex.position.x, 0.01f);
+                            if (ImGui::DragFloat3("", &vertex.position.x, 0.01f)) sceneDirty = true;
                             ImGui::PopID();
                         }
                         ImGui::TreePop();
@@ -1477,6 +1478,7 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
 
                                 if (ImGui::BeginCombo("##materialCombo", primitive.material->name.c_str()))
                                 {
+                                    auto oldMaterial = primitive.material;
                                     for (auto &material : scene->materials)
                                     {
                                         const bool isSelected = material == primitive.material;
@@ -1487,6 +1489,7 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
                                             ImGui::SetItemDefaultFocus();
                                     }
                                     ImGui::EndCombo();
+                                    if (oldMaterial != primitive.material) sceneDirty = true;
                                 }
 
                                 ImGui::TreePop();
@@ -1520,6 +1523,7 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
                     default:
                         scene->meshes.push_back(local_mesh_empty("Empty"));
                     }
+                    sceneDirty = true;
                 }
             }
             else
@@ -1579,6 +1583,7 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
             {
                 auto newImage = std::make_shared<LocalImage>(load_image_data_from_file(addImageBuffer));
                 scene->images.push_back(newImage);
+                sceneDirty = true;
             }
             ImGui::TreePop();
         }
@@ -1620,6 +1625,7 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
                     newSampler->name = "Linear";
                 }
                 scene->samplers.push_back(newSampler);
+                sceneDirty = true;
             }
 
             ImGui::TreePop();
@@ -1640,6 +1646,7 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
                             material->hasColorImage = false;
                             material->colorImage.reset();
                             material->colorSampler.reset();
+                            sceneDirty = true;
                         }
                     }
                     else
@@ -1682,6 +1689,7 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
                                 material->colorImage = scene->images[selectedImage];
                                 material->colorSampler = scene->samplers[selectedSampler];
                                 material->hasColorImage = true;
+                                sceneDirty = true;
                             }
                         }
                         else
@@ -1693,9 +1701,9 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
                                 ImGui::SetTooltip("No image or sampler in the scene.");
                         }
                     }
-                    ImGui::ColorEdit4("Color", &material->params.colorFactors.r);
-                    ImGui::DragFloat("Metallic", &material->params.metal_rough_factors.r, 0.01f);
-                    ImGui::DragFloat("Rougness", &material->params.metal_rough_factors.g, 0.01f);
+                    if (ImGui::ColorEdit4("Color", &material->params.colorFactors.r)) sceneDirty = true;
+                    if (ImGui::DragFloat("Metallic", &material->params.metal_rough_factors.r, 0.01f)) sceneDirty = true;
+                    if (ImGui::DragFloat("Rougness", &material->params.metal_rough_factors.g, 0.01f)) sceneDirty = true;
                     ImGui::Text("Pass: %s", (material->passType == MaterialPass::MainColor) ? "Opaque" : "Transparent");
                     ImGui::TreePop();
                 }
@@ -1722,6 +1730,7 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
                 newMaterial->passType = MaterialPass::MainColor;
                 newMaterial->name = addMaterialBuffer;
                 scene->materials.push_back(newMaterial);
+                sceneDirty = true;
             }
 
             ImGui::TreePop();
@@ -1745,25 +1754,21 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
                         //ImGui::DragFloat4("##col2", &node->LocalTransform[2][0], 0.01f);
                         //ImGui::DragFloat4("##col3", &node->LocalTransform[3][0], 0.01f);
                         
-                        static glm::vec3 position = node->LocalTransform[3];
-                        static glm::vec3 rot_euler{ 0.0f };
-                        static glm::vec3 scale{ 1.0f };
+                        if (ImGui::DragFloat3("Position", &node->DebugWindow_Position.x, 0.01f)) sceneDirty = true;
+                        if (ImGui::DragFloat3("Rotation", &node->DebugWindow_RotEuler.x, 0.01f)) sceneDirty = true;
+                        if (ImGui::DragFloat3("Scale", &node->DebugWindow_Scale.x, 0.01f)) sceneDirty = true;
 
-                        ImGui::DragFloat3("Position", &position.x, 0.01f);
-                        ImGui::DragFloat3("Rotation", &rot_euler.x, 0.01f);
-                        ImGui::DragFloat3("Scale", &scale.x, 0.01f);
-
+                        // TODO: Sync from decomposed transform to LocalTransform and back as part of Node
                         node->LocalTransform = glm::mat4{ 1.0f };
-                        node->LocalTransform = glm::translate(node->LocalTransform, position);
-                        node->LocalTransform = glm::rotate(node->LocalTransform, rot_euler.x, {1, 0, 0});
-                        node->LocalTransform = glm::rotate(node->LocalTransform, rot_euler.y, {0, 1, 0});
-                        node->LocalTransform = glm::rotate(node->LocalTransform, rot_euler.z, {0, 0, 1});
-                        node->LocalTransform = glm::scale(node->LocalTransform, scale);
+                        node->LocalTransform = glm::translate(node->LocalTransform, node->DebugWindow_Position);
+                        node->LocalTransform = glm::rotate(node->LocalTransform, node->DebugWindow_RotEuler.x, {1, 0, 0});
+                        node->LocalTransform = glm::rotate(node->LocalTransform, node->DebugWindow_RotEuler.y, {0, 1, 0});
+                        node->LocalTransform = glm::rotate(node->LocalTransform, node->DebugWindow_RotEuler.z, {0, 0, 1});
+                        node->LocalTransform = glm::scale(node->LocalTransform, node->DebugWindow_Scale);
 
                         ImGui::TreePop();
                     }
 
-                    
                     if (ImGui::TreeNode("Children", "Children: %d", node->Children.size()))
                     {
                         for (auto &child : node->Children)
@@ -1812,6 +1817,8 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
 
                     scene->nodes.push_back(node);
                     scene->topNodes.push_back(node);
+
+                    sceneDirty = true;
                 }
             }
             else
@@ -1826,7 +1833,7 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
             ImGui::TreePop();
         }
 
-        if (ImGui::Button("Upload scene"))
+        if (sceneDirty)
         {
             scene->_clearGPUData();
             scene->SyncToGPU();

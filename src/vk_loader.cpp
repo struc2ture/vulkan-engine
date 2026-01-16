@@ -544,6 +544,8 @@ void LocalScene::SyncToGPU()
         resourceHeader.MaterialParamDataBufferOffset = dataIndex * sizeof(MaterialParameters);
 
         material->materialInstance = engine->MaterialBuilder.WriteMaterial(engine->_device, material->passType, resourceHeader, descriptorPool);
+
+        dataIndex++;
     }
 
     for (auto &mesh : meshes)

@@ -81,6 +81,11 @@ struct LocalNode : public IRenderable
     glm::mat4 LocalTransform;
     glm::mat4 WorldTransform;
 
+    // TODO: Sync from LocalTransform and back
+    glm::vec3 DebugWindow_Position{0.0f};
+    glm::vec3 DebugWindow_RotEuler{0.0f};
+    glm::vec3 DebugWindow_Scale{1.0f};
+
     std::shared_ptr<LocalMesh> Mesh;
 
     void RefreshTransform(const glm::mat4 &parentMatrix);

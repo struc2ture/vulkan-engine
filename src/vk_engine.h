@@ -284,7 +284,6 @@ public:
 	StandardMaterialBuilder MaterialBuilder;
 
 	std::vector<std::shared_ptr<LocalScene>> _localScenes;
-	//std::unordered_map<std::shared_ptr<LocalScene>, std::shared_ptr<DrawScene>> _drawScenes;
 	std::weak_ptr<LocalScene> _inspectedScene;
 
 	std::unordered_map<std::shared_ptr<LocalImage>, std::shared_ptr<ImguiPreviewTexture>> _imguiPreviewTextures;
@@ -301,19 +300,15 @@ public:
 
 	static VulkanEngine& Get();
 
-	//initializes everything in the engine
 	void init();
 
-	//shuts down the engine
 	void cleanup();
 
-	//draw loop
 	void draw();
 	void draw_background(VkCommandBuffer cmd);
 	void draw_imgui(VkCommandBuffer cmd, VkImageView targetImageView);
 	void draw_geometry(VkCommandBuffer cmd);
 
-	//run main loop
 	void run();
 
 	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
