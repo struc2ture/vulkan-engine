@@ -43,9 +43,9 @@ VkSamplerMipmapMode extract_mipmap_mode(fastgltf::Filter filter)
     }
 }
 
-LocalImage load_image_data(fastgltf::Asset &asset, fastgltf::Image &image, std::filesystem::path parentPath)
+SceneImage load_image_data(fastgltf::Asset &asset, fastgltf::Image &image, std::filesystem::path parentPath)
 {
-    LocalImage newImage {};
+    SceneImage newImage {};
     int width, height, nrChannels;
 
     std::visit(
@@ -109,9 +109,9 @@ LocalImage load_image_data(fastgltf::Asset &asset, fastgltf::Image &image, std::
     return newImage;
 }
 
-LocalImage load_image_data_from_file(std::filesystem::path path)
+SceneImage load_image_data_from_file(std::filesystem::path path)
 {
-    LocalImage newImage {};
+    SceneImage newImage {};
     int width, height, nrChannels;
 
     unsigned char *data = stbi_load(path.generic_string().c_str(), &width, &height, &nrChannels, 4);
@@ -212,13 +212,13 @@ std::optional<AllocatedImage> load_image(VulkanEngine *engine, fastgltf::Asset &
     }
 }
 
-std::optional<std::shared_ptr<LocalScene>> load_scene(VulkanEngine *engine, std::string_view filePath)
+std::optional<std::shared_ptr<Scene>> load_scene(VulkanEngine *engine, std::string_view filePath)
 {
     fmt::println("Loading Scene: {}", filePath);
 
     std::filesystem::path path = filePath;
 
-    auto scene = std::make_shared<LocalScene>(filePath.data(), path.filename().generic_string(), engine);
+    auto scene = std::make_shared<Scene>(filePath.data(), path.filename().generic_string(), engine);
 
     fastgltf::Parser parser {};
 
@@ -264,7 +264,7 @@ std::optional<std::shared_ptr<LocalScene>> load_scene(VulkanEngine *engine, std:
 
     for (fastgltf::Sampler &sampler : gltf.samplers)
     {
-        auto newSampler = std::make_shared<LocalSampler>();
+        auto newSampler = std::make_shared<SceneSampler>();
         newSampler->magFilter = extract_filter(sampler.magFilter.value_or(fastgltf::Filter::Nearest));
         newSampler->minFilter = extract_filter(sampler.minFilter.value_or(fastgltf::Filter::Nearest));
         newSampler->mipmapMode = extract_mipmap_mode(sampler.minFilter.value_or(fastgltf::Filter::Nearest));
@@ -274,7 +274,7 @@ std::optional<std::shared_ptr<LocalScene>> load_scene(VulkanEngine *engine, std:
 
     for (fastgltf::Image &image : gltf.images)
     {
-        auto newImage = std::make_shared<LocalImage>(load_image_data(gltf, image, path.parent_path()));
+        auto newImage = std::make_shared<SceneImage>(load_image_data(gltf, image, path.parent_path()));
         scene->images.push_back(newImage);
     }
 
@@ -289,7 +289,7 @@ std::optional<std::shared_ptr<LocalScene>> load_scene(VulkanEngine *engine, std:
         material_params.metal_rough_factors.r = mat.pbrData.metallicFactor;
         material_params.metal_rough_factors.g = mat.pbrData.roughnessFactor;
 
-        auto newMaterial = std::make_shared<LocalMaterial>();
+        auto newMaterial = std::make_shared<SceneMaterial>();
         newMaterial->name = mat.name.c_str();
         newMaterial->hasColorImage = mat.pbrData.baseColorTexture.has_value();
         if (newMaterial->hasColorImage)
@@ -310,7 +310,7 @@ std::optional<std::shared_ptr<LocalScene>> load_scene(VulkanEngine *engine, std:
 
     for (fastgltf::Mesh &mesh : gltf.meshes)
     {
-        auto newMesh = std::make_shared<LocalMesh>();
+        auto newMesh = std::make_shared<SceneMesh>();
         newMesh->name = mesh.name.c_str();
 
         indices.clear();
@@ -318,7 +318,7 @@ std::optional<std::shared_ptr<LocalScene>> load_scene(VulkanEngine *engine, std:
 
         for (auto &&p : mesh.primitives)
         {
-            LocalPrimitive newPrimitive {};
+            ScenePrimitive newPrimitive {};
             newPrimitive.startIndex = (uint32_t)indices.size();
             newPrimitive.indexCount = (uint32_t)gltf.accessors[p.indicesAccessor.value()].count;
 
@@ -411,7 +411,7 @@ std::optional<std::shared_ptr<LocalScene>> load_scene(VulkanEngine *engine, std:
     uint64_t nodeId = 0;
     for (fastgltf::Node &node : gltf.nodes)
     {
-        auto newNode = std::make_shared<LocalNode>();
+        auto newNode = std::make_shared<SceneNode>();
 
         if (node.meshIndex.has_value())
         {
@@ -469,7 +469,7 @@ std::optional<std::shared_ptr<LocalScene>> load_scene(VulkanEngine *engine, std:
     return scene;
 }
 
-LocalScene::LocalScene(std::string path_, std::string name_, VulkanEngine *engine_)
+Scene::Scene(std::string path_, std::string name_, VulkanEngine *engine_)
 {
     path = path_;
     name = name_;
@@ -483,13 +483,13 @@ LocalScene::LocalScene(std::string path_, std::string name_, VulkanEngine *engin
     descriptorPool.init(engine->_device, 10, sizes);
 }
 
-LocalScene::~LocalScene()
+Scene::~Scene()
 {
     _clearGPUData();
     descriptorPool.destroy_pools(engine->_device);
 }
 
-void LocalScene::SyncToGPU()
+void Scene::SyncToGPU()
 {
     for (auto &sampler : samplers)
     {
@@ -559,7 +559,7 @@ void LocalScene::SyncToGPU()
     }
 }
 
-void LocalScene::_clearGPUData()
+void Scene::_clearGPUData()
 {
     vkDeviceWaitIdle(engine->_device);
 
@@ -587,7 +587,7 @@ void LocalScene::_clearGPUData()
     }
 }
 
-void LocalNode::RefreshTransform(const glm::mat4 &parentMatrix)
+void SceneNode::RefreshTransform(const glm::mat4 &parentMatrix)
 {
     WorldTransform = parentMatrix * LocalTransform;
     for (auto &child : Children)
@@ -596,7 +596,7 @@ void LocalNode::RefreshTransform(const glm::mat4 &parentMatrix)
     }
 }
 
-void LocalNode::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
+void SceneNode::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
 {
     if (Mesh != nullptr)
     {
@@ -627,7 +627,7 @@ void LocalNode::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
     }
 }
 
-void LocalScene::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
+void Scene::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
 {
     for (auto &node : topNodes)
     {
@@ -635,16 +635,16 @@ void LocalScene::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
     }
 }
 
-std::shared_ptr<LocalMesh> local_mesh_empty(std::string name)
+std::shared_ptr<SceneMesh> local_mesh_empty(std::string name)
 {
-    auto mesh = std::make_shared<LocalMesh>();
+    auto mesh = std::make_shared<SceneMesh>();
     mesh->name = name;
     return mesh;
 }
 
-std::shared_ptr<LocalMesh> local_mesh_cube(std::string name, std::shared_ptr<LocalMaterial> material)
+std::shared_ptr<SceneMesh> local_mesh_cube(std::string name, std::shared_ptr<SceneMaterial> material)
 {
-    auto mesh = std::make_shared<LocalMesh>();
+    auto mesh = std::make_shared<SceneMesh>();
     mesh->name = name;
 
     mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, -1.0, -1.0), .uv_x = 0.0, .normal = glm::vec3(1.0, 0.0, 0.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
@@ -680,7 +680,7 @@ std::shared_ptr<LocalMesh> local_mesh_cube(std::string name, std::shared_ptr<Loc
         20,21,22, 20,22,23
     };
 
-    LocalPrimitive primitive {};
+    ScenePrimitive primitive {};
     primitive.startIndex = 0;
     primitive.indexCount = mesh->indices.size();
     primitive.bounds = calculate_bounds(*mesh, primitive);
@@ -691,9 +691,9 @@ std::shared_ptr<LocalMesh> local_mesh_cube(std::string name, std::shared_ptr<Loc
     return mesh;
 }
 
-std::shared_ptr<LocalMesh> local_mesh_cylinder(std::string name, std::shared_ptr<LocalMaterial> material)
+std::shared_ptr<SceneMesh> local_mesh_cylinder(std::string name, std::shared_ptr<SceneMaterial> material)
 {
-    auto mesh = std::make_shared<LocalMesh>();
+    auto mesh = std::make_shared<SceneMesh>();
     mesh->name = name;
     
     mesh->vertices.push_back(Vertex { .position = glm::vec3(1.0, -1.0, 0.0), .uv_x = 0.0, .normal = glm::vec3(1.0, 0.0, 0.0), .uv_y = 0.0, .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)});
@@ -786,7 +786,7 @@ std::shared_ptr<LocalMesh> local_mesh_cylinder(std::string name, std::shared_ptr
         33,0,30
     };
 
-    LocalPrimitive primitive {};
+    ScenePrimitive primitive {};
     primitive.startIndex = 0;
     primitive.indexCount = mesh->indices.size();
     primitive.bounds = calculate_bounds(*mesh, primitive);
@@ -797,9 +797,9 @@ std::shared_ptr<LocalMesh> local_mesh_cylinder(std::string name, std::shared_ptr
     return mesh;
 }
 
-std::shared_ptr<LocalScene> new_local_scene(VulkanEngine *engine, std::string name)
+std::shared_ptr<Scene> new_local_scene(VulkanEngine *engine, std::string name)
 {
-    auto scene = std::make_shared<LocalScene>(std::string{}, name.empty() ? "BoxScene" : name, engine);
+    auto scene = std::make_shared<Scene>(std::string{}, name.empty() ? "BoxScene" : name, engine);
 
     bool addDefault = name.empty();
 
@@ -807,7 +807,7 @@ std::shared_ptr<LocalScene> new_local_scene(VulkanEngine *engine, std::string na
     {
         // material
         {
-            auto newMaterial = std::make_shared<LocalMaterial>();
+            auto newMaterial = std::make_shared<SceneMaterial>();
             newMaterial->name = "BoxMaterial";
             newMaterial->hasColorImage = false;
 
@@ -835,7 +835,7 @@ std::shared_ptr<LocalScene> new_local_scene(VulkanEngine *engine, std::string na
 
         // node
         {
-            auto node = std::make_shared<LocalNode>();
+            auto node = std::make_shared<SceneNode>();
             node->Name = "BoxNode";
             node->NodeId = 0;
             node->Mesh = scene->meshes[0];
@@ -852,7 +852,7 @@ std::shared_ptr<LocalScene> new_local_scene(VulkanEngine *engine, std::string na
     return scene;
 }
 
-Bounds calculate_bounds(const LocalMesh &mesh, const LocalPrimitive &primitive)
+Bounds calculate_bounds(const SceneMesh &mesh, const ScenePrimitive &primitive)
 {
     glm::vec3 minpos = mesh.vertices[mesh.indices[primitive.startIndex]].position;
     glm::vec3 maxpos = minpos;

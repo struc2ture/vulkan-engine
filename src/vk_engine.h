@@ -207,10 +207,10 @@ public:
 
 	StandardMaterialBuilder MaterialBuilder;
 
-	std::vector<std::shared_ptr<LocalScene>> _localScenes;
-	std::weak_ptr<LocalScene> _inspectedScene;
+	std::vector<std::shared_ptr<Scene>> _localScenes;
+	std::weak_ptr<Scene> _inspectedScene;
 
-	std::unordered_map<std::shared_ptr<LocalImage>, std::shared_ptr<ImguiPreviewTexture>> _imguiPreviewTextures;
+	std::unordered_map<std::shared_ptr<SceneImage>, std::shared_ptr<ImguiPreviewTexture>> _imguiPreviewTextures;
 
 	bool _imguiBackgroundWindow{ false };
 	bool _imguiStatsWindow{ false };
@@ -271,7 +271,7 @@ private:
 	void imgui_stats();
 	void imgui_render_objects();
 	void imgui_scene_list();
-	void imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene);
+	void imgui_local_scene_inspector(std::shared_ptr<Scene> scene);
 	void imgui_camera_inspector();
 
 	void set_console_mode(bool state);

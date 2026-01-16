@@ -387,7 +387,7 @@ void VulkanEngine::init_default_data()
     // Scene
     mainCamera.velocity = glm::vec3(0.0f);
     mainCamera.position = glm::vec3(0, 1, 3);
-    //mainCamera.position = glm::vec3(30.f, -00.f, -085.f);
+    //mainCamera.position = glm::vec3(30.f, -00.f, -085.f); // good for structure.glb scene
     mainCamera.pitch = 0;
     mainCamera.yaw = 0;
 
@@ -1336,7 +1336,7 @@ void VulkanEngine::imgui_scene_list()
     ImGui::End();
 }
 
-void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene)
+void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<Scene> scene)
 {
     if (ImGui::Begin("Local Scene Inspector", &_imguiLocalSceneInspectorWindow))
     {
@@ -1503,7 +1503,7 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
             ImGui::SameLine();
             if (ImGui::Button("Add Image"))
             {
-                auto newImage = std::make_shared<LocalImage>(load_image_data_from_file(addImageBuffer));
+                auto newImage = std::make_shared<SceneImage>(load_image_data_from_file(addImageBuffer));
                 scene->images.push_back(newImage);
                 sceneDirty = true;
             }
@@ -1531,7 +1531,7 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
             ImGui::SameLine();
             if (ImGui::Button("Add Sampler"))
             {
-                auto newSampler = std::make_shared<LocalSampler>();
+                auto newSampler = std::make_shared<SceneSampler>();
                 switch (samplerType)
                 {
                 case 0:
@@ -1646,7 +1646,7 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
                 material_params.metal_rough_factors.r = 0.0f;
                 material_params.metal_rough_factors.g = 1.0f;
 
-                auto newMaterial = std::make_shared<LocalMaterial>();
+                auto newMaterial = std::make_shared<SceneMaterial>();
                 newMaterial->params = material_params;
                 newMaterial->hasColorImage = false;
                 newMaterial->passType = MaterialPass::MainColor;
@@ -1731,7 +1731,7 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
 
                 if (ImGui::Button("Add Node"))
                 {
-                    auto node = std::make_shared<LocalNode>();
+                    auto node = std::make_shared<SceneNode>();
                     node->Name = addNodeBuffer;
                     node->NodeId = (uint64_t)scene->meshes.size();
                     node->Mesh = scene->meshes[selectedMesh];
