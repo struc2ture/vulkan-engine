@@ -26,6 +26,8 @@ struct LocalImage
     VkFormat format;
     std::optional<std::filesystem::path> path;
     void *data;
+
+    AllocatedImage allocatedImage;
 };
 
 struct LocalSampler
@@ -34,6 +36,8 @@ struct LocalSampler
     VkFilter magFilter;
     VkFilter minFilter;
     VkSamplerMipmapMode mipmapMode;
+
+    VkSampler vkSampler;
 };
 
 struct LocalMaterial
@@ -44,6 +48,8 @@ struct LocalMaterial
     std::shared_ptr<LocalSampler> colorSampler;
     MaterialParameters params;
     MaterialPass passType;
+
+    MaterialInstance materialInstance;
 };
 
 struct LocalPrimitive
@@ -60,22 +66,28 @@ struct LocalMesh
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
     std::vector<LocalPrimitive> primitives;
+
+    GPUMeshBuffers meshBuffer;
 };
 
-struct LocalNode
+struct LocalNode : public IRenderable
 {
-    std::string name;
-    uint64_t node_id;
+    std::string Name;
+    uint64_t NodeId;
 
-    std::weak_ptr<LocalNode> parent;
-    std::vector<std::shared_ptr<LocalNode>> children;
+    std::weak_ptr<LocalNode> Parent;
+    std::vector<std::shared_ptr<LocalNode>> Children;
 
-    glm::mat4 localTransform;
+    glm::mat4 LocalTransform;
+    glm::mat4 WorldTransform;
 
-    std::shared_ptr<LocalMesh> loaded_mesh;
+    std::shared_ptr<LocalMesh> Mesh;
+
+    void RefreshTransform(const glm::mat4 &parentMatrix);
+    void Draw(const glm::mat4 &topMatrix, DrawContext &ctx) override;
 };
 
-struct LocalScene
+struct LocalScene : public IRenderable
 {
     std::string path;
     std::string name;
@@ -86,6 +98,20 @@ struct LocalScene
     std::vector<std::shared_ptr<LocalSampler>> samplers;
     std::vector<std::shared_ptr<LocalMaterial>> materials;
     std::vector<std::shared_ptr<LocalNode>> topNodes;
+
+    DescriptorAllocatorGrowable descriptorPool;
+
+    AllocatedBuffer materialDataBuffer;
+
+    VulkanEngine *engine;
+
+    virtual void Draw(const glm::mat4 &topMatrix, DrawContext &ctx) override;
+
+    ~LocalScene() { _clearGPUData(); };
+
+    void SyncToGPU();
+
+    void _clearGPUData();
 };
 
 std::shared_ptr<LocalMesh> local_mesh_empty(std::string name);

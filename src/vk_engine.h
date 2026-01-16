@@ -284,7 +284,7 @@ public:
 	StandardMaterialBuilder MaterialBuilder;
 
 	std::vector<std::shared_ptr<LocalScene>> _localScenes;
-	std::unordered_map<std::shared_ptr<LocalScene>, std::shared_ptr<DrawScene>> _drawScenes;
+	//std::unordered_map<std::shared_ptr<LocalScene>, std::shared_ptr<DrawScene>> _drawScenes;
 	std::weak_ptr<LocalScene> _inspectedScene;
 
 	std::unordered_map<std::shared_ptr<LocalImage>, std::shared_ptr<ImguiPreviewTexture>> _imguiPreviewTextures;

@@ -221,6 +221,7 @@ std::optional<std::shared_ptr<LocalScene>> load_scene(VulkanEngine *engine, std:
     auto scene = std::make_shared<LocalScene>();
     scene->path = filePath.data();
     scene->name = path.filename().generic_string();
+    scene->engine = engine;
 
     fastgltf::Parser parser {};
 
@@ -410,22 +411,22 @@ std::optional<std::shared_ptr<LocalScene>> load_scene(VulkanEngine *engine, std:
         scene->meshes.push_back(newMesh);
     }
 
-    uint64_t node_id = 0;
+    uint64_t nodeId = 0;
     for (fastgltf::Node &node : gltf.nodes)
     {
         auto newNode = std::make_shared<LocalNode>();
 
         if (node.meshIndex.has_value())
         {
-            newNode->loaded_mesh = scene->meshes[node.meshIndex.value()];
+            newNode->Mesh = scene->meshes[node.meshIndex.value()];
         }
-        newNode->node_id = node_id++;
-        newNode->name = node.name;
+        newNode->NodeId = nodeId++;
+        newNode->Name = node.name;
 
         std::visit(
             fastgltf::visitor{
                 [&](fastgltf::Node::TransformMatrix matrix) {
-                memcpy(&newNode->localTransform, matrix.data(), sizeof(matrix));
+                memcpy(&newNode->LocalTransform, matrix.data(), sizeof(matrix));
             },
             [&](fastgltf::Node::TRS transform) {
                 glm::vec3 tl(transform.translation[0], transform.translation[1], transform.translation[2]);
@@ -436,7 +437,7 @@ std::optional<std::shared_ptr<LocalScene>> load_scene(VulkanEngine *engine, std:
                 glm::mat4 rm = glm::toMat4(rot);
                 glm::mat4 sm = glm::scale(glm::mat4(1.0f), sc);
 
-                newNode->localTransform = tm * rm * sm;
+                newNode->LocalTransform = tm * rm * sm;
             }
             },
             node.transform
@@ -452,20 +453,174 @@ std::optional<std::shared_ptr<LocalScene>> load_scene(VulkanEngine *engine, std:
 
         for (auto &childI : node.children)
         {
-            sceneNode->children.push_back(scene->nodes[childI]);
-            scene->nodes[childI]->parent = sceneNode;
+            sceneNode->Children.push_back(scene->nodes[childI]);
+            scene->nodes[childI]->Parent = sceneNode;
         }
     }
 
     for (auto &node : scene->nodes)
     {
-        if (node->parent.lock() == nullptr)
+        if (node->Parent.lock() == nullptr)
         {
             scene->topNodes.push_back(node);
+            node->RefreshTransform(glm::mat4{ 1.0f });
         }
     }
 
+    scene->SyncToGPU();
+
     return scene;
+}
+
+
+void LocalScene::SyncToGPU()
+{
+    std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> sizes = {
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3},
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3},
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1}
+    };
+    descriptorPool.init(engine->_device, materials.size(), sizes);
+
+    for (auto &sampler : samplers)
+    {
+        VkSamplerCreateInfo samplerCreateInfo = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
+        samplerCreateInfo.maxLod = VK_LOD_CLAMP_NONE;
+        samplerCreateInfo.minLod = 0;
+
+        samplerCreateInfo.magFilter = sampler->magFilter;
+        samplerCreateInfo.minFilter = sampler->minFilter;
+
+        samplerCreateInfo.mipmapMode = sampler->mipmapMode;
+
+        VkSampler vkSampler;
+        vkCreateSampler(engine->_device, &samplerCreateInfo, nullptr, &vkSampler);
+
+        sampler->vkSampler = vkSampler;
+    }
+
+    const bool mipmapped = false;
+    for (auto &image : images)
+    {
+        if (image->data != nullptr)
+        {
+            VkExtent3D imageExtent {};
+            imageExtent.width = image->width;
+            imageExtent.height = image->height;
+            imageExtent.depth = 1;
+
+            image->allocatedImage = engine->create_image(image->data, imageExtent, image->format, VK_IMAGE_USAGE_SAMPLED_BIT, mipmapped);
+        }
+        else
+        {
+            image->allocatedImage = engine->_errorCheckerboardImage;
+        }
+    }
+
+    materialDataBuffer = engine->create_buffer(sizeof(MaterialParameters) * materials.size(), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+    auto mappedParamsPtr = (MaterialParameters *)materialDataBuffer.info.pMappedData;
+
+    int dataIndex = 0;
+
+    for (auto &material : materials)
+    {
+        mappedParamsPtr[dataIndex] = material->params;
+
+        StandardMaterialResourceHeader resourceHeader;
+        resourceHeader.ColorImage = material->hasColorImage ? material->colorImage->allocatedImage : engine->_whiteImage;
+        resourceHeader.ColorSampler = material->hasColorImage ? material->colorSampler->vkSampler : engine->_defaultSamplerLinear;
+        resourceHeader.MetalRoughImage = engine->_whiteImage;
+        resourceHeader.MetalRoughSampler = engine->_defaultSamplerLinear;
+        resourceHeader.MaterialParamDataBuffer = materialDataBuffer.buffer;
+        resourceHeader.MaterialParamDataBufferOffset = dataIndex * sizeof(MaterialParameters);
+
+        material->materialInstance = engine->MaterialBuilder.WriteMaterial(engine->_device, material->passType, resourceHeader, descriptorPool);
+    }
+
+    for (auto &mesh : meshes)
+    {
+        mesh->meshBuffer = engine->uploadMesh(mesh->indices, mesh->vertices);
+    }
+
+    for (auto &node : topNodes)
+    {
+        node->RefreshTransform(glm::mat4{ 1.0f });
+    }
+}
+
+void LocalScene::_clearGPUData()
+{
+    descriptorPool.destroy_pools(engine->_device);
+    engine->destroy_buffer(materialDataBuffer);
+
+    for (auto &mesh : meshes)
+    {
+        engine->destroy_buffer(mesh->meshBuffer.indexBuffer);
+        engine->destroy_buffer(mesh->meshBuffer.vertexBuffer);
+    }
+
+    for (auto &image : images)
+    {
+        if (image->allocatedImage.image == engine->_errorCheckerboardImage.image)
+        {
+            // don't destroy the default texture
+            continue;
+        }
+        engine->destroy_image(image->allocatedImage);
+    }
+
+    for (auto &sampler : samplers)
+    {
+        vkDestroySampler(engine->_device, sampler->vkSampler, nullptr);
+    }
+}
+
+void LocalNode::RefreshTransform(const glm::mat4 &parentMatrix)
+{
+    WorldTransform = parentMatrix * LocalTransform;
+    for (auto &child : Children)
+    {
+        child->RefreshTransform(WorldTransform);
+    }
+}
+
+void LocalNode::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
+{
+    if (Mesh != nullptr)
+    {
+        glm::mat4 nodeMatrix = topMatrix * WorldTransform;
+
+        for (auto &primitive : Mesh->primitives)
+        {
+            RenderObject def;
+            def.indexCount = primitive.indexCount;
+            def.firstIndex = primitive.startIndex;
+            def.indexBuffer = Mesh->meshBuffer.indexBuffer.buffer;
+            def.material = &primitive.material->materialInstance;
+            def.bounds = primitive.bounds;
+            def.transform = nodeMatrix;
+            def.vertexBufferAddress = Mesh->meshBuffer.vertexBufferAddress;
+
+            if (primitive.material->passType == MaterialPass::Transparent) {
+                ctx.transparentSurfaces.push_back(def);
+            } else {
+                ctx.opaqueSurfaces.push_back(def);
+            }
+        }
+    }
+
+    for (auto &child : Children)
+    {
+        child->Draw(topMatrix, ctx);
+    }
+}
+
+void LocalScene::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
+{
+    for (auto &node : topNodes)
+    {
+        node->Draw(topMatrix, ctx);
+    }
 }
 
 std::shared_ptr<LocalMesh> local_mesh_empty(std::string name)
@@ -634,6 +789,7 @@ std::shared_ptr<LocalScene> new_local_scene(VulkanEngine *engine, std::string na
 {
     auto scene = std::make_shared<LocalScene>();
     scene->name = name.empty() ? "BoxScene" : name;
+    scene->engine = engine;
 
     bool addDefault = name.empty();
 
@@ -670,14 +826,17 @@ std::shared_ptr<LocalScene> new_local_scene(VulkanEngine *engine, std::string na
         // node
         {
             auto node = std::make_shared<LocalNode>();
-            node->name = "BoxNode";
-            node->node_id = 0;
-            node->loaded_mesh = scene->meshes[0];
-            node->localTransform = glm::mat4 { 1.0f };
+            node->Name = "BoxNode";
+            node->NodeId = 0;
+            node->Mesh = scene->meshes[0];
+            node->LocalTransform = glm::mat4 { 1.0f };
+            node->RefreshTransform(glm::mat4{ 1.0f });
 
             scene->nodes.push_back(node);
             scene->topNodes.push_back(node);
         }
+
+        scene->SyncToGPU();
     }
 
     return scene;

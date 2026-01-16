@@ -64,17 +64,6 @@ void VulkanEngine::init()
 
     init_imgui();
 
-    mainCamera.velocity = glm::vec3(0.0f);
-    mainCamera.position = glm::vec3(0, 1, 3);
-    //mainCamera.position = glm::vec3(30.f, -00.f, -085.f);
-    mainCamera.pitch = 0;
-    mainCamera.yaw = 0;
-
-    auto loadedScene = load_scene(this, "../../assets/struct_quinoa/struct_quinoa.gltf");
-    assert(loadedScene.has_value());
-    _localScenes.push_back(loadedScene.value());
-    _drawScenes[_localScenes[0]] = upload_local_scene(_localScenes[0]);
-
     set_console_mode(true);
 
     _isInitialized = true;
@@ -394,6 +383,17 @@ void VulkanEngine::init_default_data()
         destroy_image(_blackImage);
         destroy_image(_errorCheckerboardImage);
     });
+
+    // Scene
+    mainCamera.velocity = glm::vec3(0.0f);
+    mainCamera.position = glm::vec3(0, 1, 3);
+    //mainCamera.position = glm::vec3(30.f, -00.f, -085.f);
+    mainCamera.pitch = 0;
+    mainCamera.yaw = 0;
+
+    auto scene = load_scene(this, "../../assets/struct_quinoa/struct_quinoa.gltf");
+    assert(scene.has_value());
+    _localScenes.push_back(scene.value());
 }
 
 void VulkanEngine::init_background_pipelines()
@@ -725,7 +725,7 @@ void VulkanEngine::cleanup()
         }
 
         _localScenes.clear();
-        _drawScenes.clear();
+        //_drawScenes.clear();
 
         MaterialBuilder.ClearResources(_device);
 
@@ -1166,15 +1166,6 @@ MaterialInstance StandardMaterialBuilder::WriteMaterial(VkDevice device, Materia
     return matData;
 }
 
-void DrawNode::RefreshTransform(const glm::mat4 &parentMatrix)
-{
-    WorldTransform = parentMatrix * LocalTransform;
-    for (auto &child : Children)
-    {
-        child->RefreshTransform(WorldTransform);
-    }
-}
-
 void DrawNode::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
 {
     if (Mesh != nullptr)
@@ -1203,6 +1194,15 @@ void DrawNode::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
     for (auto &child : Children)
     {
         child->Draw(topMatrix, ctx);
+    }
+}
+
+void DrawNode::RefreshTransform(const glm::mat4 &parentMatrix)
+{
+    WorldTransform = parentMatrix * LocalTransform;
+    for (auto &child : Children)
+    {
+        child->RefreshTransform(WorldTransform);
     }
 }
 
@@ -1252,9 +1252,9 @@ void VulkanEngine::update_scene()
     mainDrawContext.opaqueSurfaces.clear();
     mainDrawContext.transparentSurfaces.clear();
     
-    for (auto &[localScene, drawScene] : _drawScenes)
+    for (auto &scene : _localScenes)
     {
-        drawScene->Draw(glm::mat4{ 1.0f }, mainDrawContext);
+        scene->Draw(glm::mat4{ 1.0f }, mainDrawContext);
     }
 
     sceneData.view = mainCamera.getViewMatrix();
@@ -1383,8 +1383,6 @@ void VulkanEngine::imgui_scene_list()
             ImGui::SameLine();
             if (ImGui::Button("Delete"))
             {
-                _drawScenes.erase(scene);
-                //scene.reset();
                 _localScenes.erase(it);
                 ImGui::PopID();
                 break;
@@ -1396,11 +1394,10 @@ void VulkanEngine::imgui_scene_list()
         ImGui::SameLine();
         if (ImGui::Button("Load File"))
         {
-            auto loadedScene = load_scene(this, load_file_buffer);
-            if (loadedScene.has_value())
+            auto scene = load_scene(this, load_file_buffer);
+            if (scene.has_value())
             {
-                _localScenes.push_back(loadedScene.value());
-                _drawScenes[_localScenes.back()] = upload_local_scene(_localScenes.back());
+                _localScenes.push_back(scene.value());
             }
             else
             {
@@ -1735,20 +1732,20 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
             for (auto &node : scene->nodes)
             {
                 ImGui::PushID(node.get());
-                if (ImGui::TreeNode("", "%s[%llu]", node->name.c_str(), node->node_id))
+                if (ImGui::TreeNode("", "%s[%llu]", node->Name.c_str(), node->NodeId))
                 {
-                    auto parent = node->parent.lock();
-                    if (parent != nullptr) ImGui::Text("Parent ID: %s[%llu]", parent->name.c_str(), parent->node_id);
+                    auto parent = node->Parent.lock();
+                    if (parent != nullptr) ImGui::Text("Parent ID: %s[%llu]", parent->Name.c_str(), parent->NodeId);
                     else ImGui::Text("Parent ID: none");
 
                     if (ImGui::TreeNode("Local Tranfsorm"))
                     {
-                        //ImGui::DragFloat4("##col0", &node->localTransform[0][0], 0.01f);
-                        //ImGui::DragFloat4("##col1", &node->localTransform[1][0], 0.01f);
-                        //ImGui::DragFloat4("##col2", &node->localTransform[2][0], 0.01f);
-                        //ImGui::DragFloat4("##col3", &node->localTransform[3][0], 0.01f);
+                        //ImGui::DragFloat4("##col0", &node->LocalTransform[0][0], 0.01f);
+                        //ImGui::DragFloat4("##col1", &node->LocalTransform[1][0], 0.01f);
+                        //ImGui::DragFloat4("##col2", &node->LocalTransform[2][0], 0.01f);
+                        //ImGui::DragFloat4("##col3", &node->LocalTransform[3][0], 0.01f);
                         
-                        static glm::vec3 position = node->localTransform[3];
+                        static glm::vec3 position = node->LocalTransform[3];
                         static glm::vec3 rot_euler{ 0.0f };
                         static glm::vec3 scale{ 1.0f };
 
@@ -1756,27 +1753,27 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
                         ImGui::DragFloat3("Rotation", &rot_euler.x, 0.01f);
                         ImGui::DragFloat3("Scale", &scale.x, 0.01f);
 
-                        node->localTransform = glm::mat4{ 1.0f };
-                        node->localTransform = glm::translate(node->localTransform, position);
-                        node->localTransform = glm::rotate(node->localTransform, rot_euler.x, {1, 0, 0});
-                        node->localTransform = glm::rotate(node->localTransform, rot_euler.y, {0, 1, 0});
-                        node->localTransform = glm::rotate(node->localTransform, rot_euler.z, {0, 0, 1});
-                        node->localTransform = glm::scale(node->localTransform, scale);
+                        node->LocalTransform = glm::mat4{ 1.0f };
+                        node->LocalTransform = glm::translate(node->LocalTransform, position);
+                        node->LocalTransform = glm::rotate(node->LocalTransform, rot_euler.x, {1, 0, 0});
+                        node->LocalTransform = glm::rotate(node->LocalTransform, rot_euler.y, {0, 1, 0});
+                        node->LocalTransform = glm::rotate(node->LocalTransform, rot_euler.z, {0, 0, 1});
+                        node->LocalTransform = glm::scale(node->LocalTransform, scale);
 
                         ImGui::TreePop();
                     }
 
                     
-                    if (ImGui::TreeNode("Children", "Children: %d", node->children.size()))
+                    if (ImGui::TreeNode("Children", "Children: %d", node->Children.size()))
                     {
-                        for (auto &child : node->children)
+                        for (auto &child : node->Children)
                         {
-                            ImGui::Text("%s[%llu]", child->name.c_str(), child->node_id);
+                            ImGui::Text("%s[%llu]", child->Name.c_str(), child->NodeId);
                         }
                         ImGui::TreePop();
                     }
                     
-                    if (node->loaded_mesh != nullptr) ImGui::Text("Mesh: %s", node->loaded_mesh->name.c_str());
+                    if (node->Mesh != nullptr) ImGui::Text("Mesh: %s", node->Mesh->name.c_str());
                     else ImGui::Text("Mesh: none");
 
                     ImGui::TreePop();
@@ -1808,10 +1805,10 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
                 if (ImGui::Button("Add Node"))
                 {
                     auto node = std::make_shared<LocalNode>();
-                    node->name = addNodeBuffer;
-                    node->node_id = (uint64_t)scene->meshes.size();
-                    node->loaded_mesh = scene->meshes[selectedMesh];
-                    node->localTransform = glm::mat4 { 1.0f };
+                    node->Name = addNodeBuffer;
+                    node->NodeId = (uint64_t)scene->meshes.size();
+                    node->Mesh = scene->meshes[selectedMesh];
+                    node->LocalTransform = glm::mat4 { 1.0f };
 
                     scene->nodes.push_back(node);
                     scene->topNodes.push_back(node);
@@ -1831,7 +1828,8 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<LocalScene> scene
 
         if (ImGui::Button("Upload scene"))
         {
-            _drawScenes[scene] = upload_local_scene(scene);
+            scene->_clearGPUData();
+            scene->SyncToGPU();
         }
     }
     ImGui::End();
@@ -2029,12 +2027,12 @@ std::shared_ptr<DrawScene> VulkanEngine::upload_local_scene(std::shared_ptr<Loca
     for (auto &node : loadedScene->nodes)
     {
         auto drawNode = std::make_shared<DrawNode>();
-        drawNode->NodeId = node->node_id;
-        drawNode->Name = node->name;
-        drawNode->LocalTransform = node->localTransform;
-        if (node->loaded_mesh != nullptr)
+        drawNode->NodeId = node->NodeId;
+        drawNode->Name = node->Name;
+        drawNode->LocalTransform = node->LocalTransform;
+        if (node->Mesh != nullptr)
         {
-            drawNode->Mesh = meshMap[node->loaded_mesh];
+            drawNode->Mesh = meshMap[node->Mesh];
         }
 
         drawScene->nodes.push_back(drawNode);
@@ -2046,8 +2044,8 @@ std::shared_ptr<DrawScene> VulkanEngine::upload_local_scene(std::shared_ptr<Loca
         auto &loadedNode = loadedScene->nodes[i];
         auto &drawNode = drawScene->nodes[i];
 
-        drawNode->Parent = nodeMap[loadedNode->parent.lock()];
-        for (auto &c : loadedNode->children)
+        drawNode->Parent = nodeMap[loadedNode->Parent.lock()];
+        for (auto &c : loadedNode->Children)
         {
             drawNode->Children.push_back(nodeMap[c]);
         }
