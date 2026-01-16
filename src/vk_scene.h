@@ -1,0 +1,121 @@
+#pragma once
+
+#include <filesystem>
+
+#include "vk_types.h"
+#include "vk_descriptors.h"
+
+struct Bounds
+{
+    glm::vec3 origin;
+    float sphereRadius;
+    glm::vec3 extents;
+};
+
+struct SceneImage
+{
+    std::string name;
+    int width, height;
+    VkFormat format;
+    std::optional<std::filesystem::path> path;
+    void *data;
+
+    AllocatedImage allocatedImage;
+};
+
+struct SceneSampler
+{
+    std::string name;
+    VkFilter magFilter;
+    VkFilter minFilter;
+    VkSamplerMipmapMode mipmapMode;
+
+    VkSampler vkSampler;
+};
+
+struct SceneMaterial
+{
+    std::string name;
+    bool hasColorImage;
+    std::shared_ptr<SceneImage> colorImage;
+    std::shared_ptr<SceneSampler> colorSampler;
+    MaterialParameters params;
+    MaterialPass passType;
+
+    MaterialInstance materialInstance;
+};
+
+struct ScenePrimitive
+{
+    uint32_t startIndex;
+    uint32_t indexCount;
+    Bounds bounds;
+    std::shared_ptr<SceneMaterial> material;
+};
+
+struct SceneMesh
+{
+    std::string name;
+    std::vector<Vertex> vertices;
+    std::vector<uint32_t> indices;
+    std::vector<ScenePrimitive> primitives;
+
+    GPUMeshBuffers meshBuffer;
+};
+
+struct DrawContext;
+
+struct SceneNode
+{
+    std::string Name;
+    uint64_t NodeId;
+
+    std::weak_ptr<SceneNode> Parent;
+    std::vector<std::shared_ptr<SceneNode>> Children;
+
+    glm::mat4 LocalTransform;
+    glm::mat4 WorldTransform;
+
+    // TODO: Sync from LocalTransform and back
+    glm::vec3 DebugWindow_Position{0.0f};
+    glm::vec3 DebugWindow_RotEuler{0.0f};
+    glm::vec3 DebugWindow_Scale{1.0f};
+
+    std::shared_ptr<SceneMesh> Mesh;
+
+    void RefreshTransform(const glm::mat4 &parentMatrix);
+    void Draw(const glm::mat4 &topMatrix, DrawContext &ctx);
+};
+
+class VulkanEngine;
+
+struct Scene
+{
+    std::string path;
+    std::string name;
+
+    std::vector<std::shared_ptr<SceneMesh>> meshes;
+    std::vector<std::shared_ptr<SceneNode>> nodes;
+    std::vector<std::shared_ptr<SceneImage>> images;
+    std::vector<std::shared_ptr<SceneSampler>> samplers;
+    std::vector<std::shared_ptr<SceneMaterial>> materials;
+    std::vector<std::shared_ptr<SceneNode>> topNodes;
+
+    DescriptorAllocatorGrowable descriptorPool;
+
+    AllocatedBuffer materialDataBuffer;
+
+    VulkanEngine *engine;
+
+    void Draw(const glm::mat4 &topMatrix, DrawContext &ctx);
+
+    Scene(std::string path, std::string name, VulkanEngine *engine);
+
+    ~Scene();
+
+    void SyncToGPU();
+
+    void _clearGPUData();
+};
+
+Bounds calculate_bounds(const SceneMesh &mesh, const ScenePrimitive &primitive);

@@ -1,16 +1,12 @@
-﻿// vulkan_guide.h : Include file for standard system include files,
-// or project specific include files.
-
-#pragma once
-
-#include <vk_types.h>
-
-#include "vk_descriptors.h"
-#include "vk_loader.h"
-
-#include "camera.h"
+﻿#pragma once
 
 #include <imgui.h>
+
+#include "vk_types.h"
+#include "vk_descriptors.h"
+#include "vk_loader.h"
+#include "vk_scene.h"
+#include "camera.h"
 
 struct DeletionQueue
 {

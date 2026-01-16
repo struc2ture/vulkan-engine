@@ -1,31 +1,26 @@
 ﻿#include "vk_engine.h"
 
-#include <SDL.h>
-#include <SDL_vulkan.h>
-
-#include <vk_initializers.h>
-#include <vk_types.h>
-
-#include "VkBootstrap.h"
-
 #include <chrono>
 #include <thread>
 
-#include "vk_images.h"
-#include "vk_pipelines.h"
-
+#include <SDL.h>
+#include <SDL_vulkan.h>
+#include <VkBootstrap.h>
 #define VMA_IMPLEMENTATION
-#include "vk_mem_alloc.h"
-
-#include "imgui.h"
-#include "imgui_impl_sdl2.h"
-#include "imgui_impl_vulkan.h"
-
-#include "vk_loader.h"
-
+#include <vk_mem_alloc.h>
+#include <imgui.h>
+#include <imgui_impl_sdl2.h>
+#include <imgui_impl_vulkan.h>
 #include <glm/gtx/transform.hpp>
 
-constexpr bool bUseValidationLayers = true;
+#include "vk_types.h"
+#include "vk_initializers.h"
+#include "vk_images.h"
+#include "vk_pipelines.h"
+#include "vk_loader.h"
+#include "vk_scene.h"
+
+constexpr bool USE_VALIDATION_LAYERS = true;
 
 VulkanEngine* loadedEngine = nullptr;
 
@@ -74,7 +69,7 @@ void VulkanEngine::init_vulkan()
     vkb::InstanceBuilder builder;
 
     auto inst_ret = builder.set_app_name("Example Vulkan Application")
-        .request_validation_layers(bUseValidationLayers)
+        .request_validation_layers(USE_VALIDATION_LAYERS)
         .use_default_debug_messenger()
         .require_api_version(1, 3, 0)
         .build();
