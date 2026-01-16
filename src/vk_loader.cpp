@@ -218,10 +218,7 @@ std::optional<std::shared_ptr<LocalScene>> load_scene(VulkanEngine *engine, std:
 
     std::filesystem::path path = filePath;
 
-    auto scene = std::make_shared<LocalScene>();
-    scene->path = filePath.data();
-    scene->name = path.filename().generic_string();
-    scene->engine = engine;
+    auto scene = std::make_shared<LocalScene>(filePath.data(), path.filename().generic_string(), engine);
 
     fastgltf::Parser parser {};
 
@@ -472,16 +469,28 @@ std::optional<std::shared_ptr<LocalScene>> load_scene(VulkanEngine *engine, std:
     return scene;
 }
 
-
-void LocalScene::SyncToGPU()
+LocalScene::LocalScene(std::string path_, std::string name_, VulkanEngine *engine_)
 {
+    path = path_;
+    name = name_;
+    engine = engine_;
+
     std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> sizes = {
         { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3},
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3},
         { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1}
     };
-    descriptorPool.init(engine->_device, materials.size(), sizes);
+    descriptorPool.init(engine->_device, 10, sizes);
+}
 
+LocalScene::~LocalScene()
+{
+    _clearGPUData();
+    descriptorPool.destroy_pools(engine->_device);
+}
+
+void LocalScene::SyncToGPU()
+{
     for (auto &sampler : samplers)
     {
         VkSamplerCreateInfo samplerCreateInfo = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
@@ -550,7 +559,8 @@ void LocalScene::SyncToGPU()
 
 void LocalScene::_clearGPUData()
 {
-    descriptorPool.destroy_pools(engine->_device);
+    vkDeviceWaitIdle(engine->_device);
+
     engine->destroy_buffer(materialDataBuffer);
 
     for (auto &mesh : meshes)
@@ -787,9 +797,7 @@ std::shared_ptr<LocalMesh> local_mesh_cylinder(std::string name, std::shared_ptr
 
 std::shared_ptr<LocalScene> new_local_scene(VulkanEngine *engine, std::string name)
 {
-    auto scene = std::make_shared<LocalScene>();
-    scene->name = name.empty() ? "BoxScene" : name;
-    scene->engine = engine;
+    auto scene = std::make_shared<LocalScene>(std::string{}, name.empty() ? "BoxScene" : name, engine);
 
     bool addDefault = name.empty();
 

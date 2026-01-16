@@ -107,7 +107,9 @@ struct LocalScene : public IRenderable
 
     virtual void Draw(const glm::mat4 &topMatrix, DrawContext &ctx) override;
 
-    ~LocalScene() { _clearGPUData(); };
+    LocalScene(std::string path, std::string name, VulkanEngine *engine);
+
+    ~LocalScene();
 
     void SyncToGPU();
 
