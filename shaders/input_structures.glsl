@@ -8,8 +8,8 @@ layout (set = 0, binding = 0) uniform SceneData
 	vec4 sunlightColor;
 	vec4 viewPos;
 	
-	vec4 lightPos[8];
-	vec4 lightColor[8];
+	//vec4 lightPos[8];
+	//vec4 lightColor[8];
 	//vec4 lightAmbient;
 	//vec4 lightDiffuse;
 	//vec4 lightSpecular;
@@ -19,14 +19,22 @@ layout (set = 0, binding = 0) uniform SceneData
     vec4 specular;
     float shininess;
 	
+} sceneData;
+
+#define MAX_LIGHTS 128
+layout (set = 0, binding = 1) uniform LightsData
+{
+	vec4 lightPos[MAX_LIGHTS];
+	vec4 lightColor[MAX_LIGHTS];
 	int lightsUsed;
 
-} sceneData;
+} lightsData;
 
 layout (set = 1, binding = 0) uniform GLTFMaterialData
 {
 	vec4 colorFactors;
 	vec4 metal_rough_factors;
+
 } materialData;
 
 layout (set = 1, binding = 1) uniform sampler2D colorTex;

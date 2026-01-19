@@ -30,6 +30,12 @@
         }                                                               \
     } while (0)
 
+static inline float rand_float()
+{
+    float rand = (float)std::rand() / (float)RAND_MAX;
+    return rand;
+}
+
 struct AllocatedImage
 {
     VkImage image;
@@ -78,13 +84,22 @@ struct SceneCommonData
     glm::vec4 sunlightColor;
     glm::vec4 viewPos;
 
-    glm::vec4 lightPos[8];
-    glm::vec4 lightColor[8];
-
+    // kind of hardcoded material. won't be here for long
     glm::vec4 ambient;
     glm::vec4 diffuse;
     glm::vec4 specular;
     float shininess;
+};
 
+#define MAX_LIGHTS 128
+
+// omni lights
+struct LightsData
+{
+    glm::vec4 lightPos[MAX_LIGHTS];
+    glm::vec4 lightColor[MAX_LIGHTS];
     int lightsUsed;
 };
+
+// spotlights
+// directional lights

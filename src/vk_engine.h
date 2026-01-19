@@ -164,6 +164,8 @@ public:
 
 	SceneCommonData sceneData;
 
+	LightsData lightsData;
+
 	VkDescriptorSetLayout _sceneCommonDataDescriptorLayout;
 
 	AllocatedImage _whiteImage;

@@ -27,24 +27,27 @@ void main()
 	
 	vec3 diffuseTotal = vec3(0.0);
 	vec3 specularTotal = vec3(0.0);
-	for (int i = 0; i < sceneData.lightsUsed; i++)
+	
+	for (int i = 0; i < lightsData.lightsUsed; i++)
 	{
 		// diffuse
 		vec3 norm = normalize(inNormal);
-		vec3 lightDir = normalize(sceneData.lightPos[i].xyz - inFragPos);
+		vec3 lightDir = normalize(lightsData.lightPos[i].xyz - inFragPos);
 		
 		float diff = max(dot(norm, lightDir), 0.0);
-		diffuseTotal += sceneData.lightColor[i].rgb * (diff * sceneData.diffuse.rgb);
+		diffuseTotal += lightsData.lightColor[i].rgb * (diff * sceneData.diffuse.rgb);
 		
 		// specular
 		vec3 viewDir = normalize(sceneData.viewPos.xyz - inFragPos);
 		vec3 reflectDir = reflect(-lightDir, norm);
 		//float spec = pow(max(dot(viewDir, reflectDir), 0.0), sceneData.shininess);
 		vec3 halfwayDir = normalize(lightDir + viewDir);
-		float spec = pow(max(dot(norm, halfwayDir), 0.0), shininess);
-		specularTotal += sceneData.lightColor[i].rgb * (spec * sceneData.specular.rgb);
+		float spec = pow(max(dot(norm, halfwayDir), 0.0), sceneData.shininess);
+		specularTotal += lightsData.lightColor[i].rgb * (spec * sceneData.specular.rgb);
 	}
 	
 	vec3 finalColor = (ambient + diffuseTotal + specularTotal) * albedo;
+	
+	//vec3 finalColor = ambient * albedo;
 	outFragColor = vec4(finalColor, 1.0);
 }

@@ -1,6 +1,7 @@
 ﻿#include "vk_engine.h"
 
 #include <chrono>
+#include <cstdlib>
 #include <thread>
 
 #include <SDL.h>
@@ -37,6 +38,8 @@ void VulkanEngine::init()
         _windowExtent.width,
         _windowExtent.height,
         window_flags);
+
+    std::srand(std::time({}));
 
     init_vulkan();
 
@@ -277,7 +280,8 @@ void VulkanEngine::init_descriptors()
 
     {
         DescriptorLayoutBuilder builder;
-        builder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+        builder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER); // scene common data
+        builder.add_binding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER); // lights data
         _sceneCommonDataDescriptorLayout = builder.build(_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
     }
 
@@ -859,33 +863,49 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 
     auto start = std::chrono::system_clock::now();
 
-    // Scene common data
-    VkDescriptorSet sceneCommonDataDescriptorSet;
+    // Scene Common Data (& lights) descriptor set (0)
+    VkDescriptorSet sceneCommonDataDescriptorSet = get_current_frame()._frameDescriptors.allocate(_device, _sceneCommonDataDescriptorLayout);
+    DescriptorWriter writer;
+
+    // Lights data (binding 1)
+    {
+        AllocatedBuffer lightsDataBuffer = create_buffer(sizeof(LightsData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+        get_current_frame()._deletionQueue.push_function([=, this]() {
+            destroy_buffer(lightsDataBuffer);
+        });
+
+        LightsData lightsData {};
+        int lightI = 0;
+        for (auto &renderLight : mainDrawContext.lights)
+        {
+            lightsData.lightPos[lightI] = renderLight.position;
+            lightsData.lightColor[lightI] = renderLight.color;
+            lightI++;
+        }
+        lightsData.lightsUsed = lightI;
+        assert(lightI <= MAX_LIGHTS);
+
+        LightsData *lightsDataRemote = (LightsData *)lightsDataBuffer.allocation->GetMappedData();
+        *lightsDataRemote = lightsData;
+        
+        writer.write_buffer(1, lightsDataBuffer.buffer, sizeof(LightsData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+    }
+
+    // Scene common data (binding 0)
     {
         // TODO: Why is this recreated every frame?
         AllocatedBuffer sceneCommonDataBuffer = create_buffer(sizeof(SceneCommonData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
         get_current_frame()._deletionQueue.push_function([=, this]() {
             destroy_buffer(sceneCommonDataBuffer);
-            });
+        });
 
-        int lightI = 0;
-        for (auto &renderLight : mainDrawContext.lights)
-        {
-            sceneData.lightPos[lightI] = renderLight.position;
-            sceneData.lightColor[lightI] = renderLight.color;
-            lightI++;
-        }
-        sceneData.lightsUsed = lightI;
+        SceneCommonData *sceneUniformDataRemote = (SceneCommonData *)sceneCommonDataBuffer.allocation->GetMappedData();
+        *sceneUniformDataRemote = sceneData;
 
-        SceneCommonData *sceneUniformData = (SceneCommonData *)sceneCommonDataBuffer.allocation->GetMappedData();
-        *sceneUniformData = sceneData;
-
-        sceneCommonDataDescriptorSet = get_current_frame()._frameDescriptors.allocate(_device, _sceneCommonDataDescriptorLayout);
-
-        DescriptorWriter writer;
         writer.write_buffer(0, sceneCommonDataBuffer.buffer, sizeof(SceneCommonData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-        writer.update_set(_device, sceneCommonDataDescriptorSet);
     }
+    
+    writer.update_set(_device, sceneCommonDataDescriptorSet);
 
     // sort opaque geometry by material and mesh to minimize pipeline state switches
     std::vector<uint32_t> opaque_draws;
@@ -1614,6 +1634,8 @@ void VulkanEngine::imgui_scene_inspector(std::shared_ptr<Scene> scene)
                         //ImGui::DragFloat4("##col1", &node->LocalTransform[1][0], 0.01f);
                         //ImGui::DragFloat4("##col2", &node->LocalTransform[2][0], 0.01f);
                         //ImGui::DragFloat4("##col3", &node->LocalTransform[3][0], 0.01f);
+
+                        node->DebugWindow_Position = glm::vec3(node->LocalTransform[3]);
                         
                         if (ImGui::DragFloat3("Position", &node->DebugWindow_Position.x, 0.01f)) sceneDirty = true;
                         if (ImGui::DragFloat3("Rotation", &node->DebugWindow_RotEuler.x, 0.01f)) sceneDirty = true;
@@ -1725,7 +1747,7 @@ void VulkanEngine::imgui_scene_inspector(std::shared_ptr<Scene> scene)
             {
                 auto node = std::make_shared<SceneNode>();
                 node->Name = addNodeBuffer;
-                node->NodeId = (uint64_t)scene->meshes.size();
+                node->NodeId = (uint64_t)scene->nodes.size();
                 node->Mesh = selectedMesh >= 0 ? scene->meshes[selectedMesh] : nullptr;
                 node->Light = selectedLight >= 0 ? scene->lights[selectedLight] : nullptr;
                 node->LocalTransform = glm::mat4 { 1.0f };
@@ -1736,6 +1758,36 @@ void VulkanEngine::imgui_scene_inspector(std::shared_ptr<Scene> scene)
                 sceneDirty = true;
             }
             ImGui::TreePop();
+        }
+
+        if (ImGui::Button("Add random light"))
+        {
+            auto cubeDebugMesh = local_mesh_cube("Light Debug Cube", scene->materials[0]);
+            scene->meshes.push_back(cubeDebugMesh);
+
+            auto newLight = std::make_shared<SceneLight>();
+            newLight->color = glm::vec4(1.0f);
+            newLight->name = "Random light";
+            scene->lights.push_back(newLight);
+
+            auto newNode = std::make_shared<SceneNode>();
+            newNode->Name = "Random Light Node";
+            newNode->NodeId = (uint64_t)scene->nodes.size();
+            newNode->Light = newLight;
+            newNode->Mesh = cubeDebugMesh;
+
+            auto transform = glm::mat4 {1.0f};
+            
+            glm::vec3 translation { rand_float() * 2.0f - 1.0f, rand_float() * 2.0f - 1.0f, rand_float() * 2.0f - 1.0f };
+            transform = glm::translate(transform, translation);
+            
+            transform = glm::scale(transform, glm::vec3 { 0.05f, 0.05f, 0.05f });
+
+            newNode->LocalTransform = transform;
+
+            scene->nodes.push_back(newNode);
+            scene->topNodes.push_back(newNode);
+            sceneDirty = true;
         }
 
         if (sceneDirty)

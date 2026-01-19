@@ -164,6 +164,8 @@ void SceneNode::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
         renderLight.position = nodeMatrix[3];
         renderLight.color = Light->color;
 
+        //fmt::println("renderLight.position: {}, {}, {}", renderLight.position.x, renderLight.position.y, renderLight.position.z);
+
         ctx.lights.push_back(renderLight);
     }
 
