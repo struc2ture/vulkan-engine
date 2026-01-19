@@ -76,4 +76,15 @@ struct SceneCommonData
     glm::vec4 ambientColor;
     glm::vec4 sunlightDirection; // w for sun power
     glm::vec4 sunlightColor;
+    glm::vec4 viewPos;
+
+    glm::vec4 lightPos[8];
+    glm::vec4 lightColor[8];
+
+    glm::vec4 ambient;
+    glm::vec4 diffuse;
+    glm::vec4 specular;
+    float shininess;
+
+    int lightsUsed;
 };

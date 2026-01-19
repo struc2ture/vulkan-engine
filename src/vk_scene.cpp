@@ -156,6 +156,17 @@ void SceneNode::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
         }
     }
 
+    if (Light != nullptr)
+    {
+        glm::mat4 nodeMatrix = topMatrix * WorldTransform;
+
+        RenderLight renderLight;
+        renderLight.position = nodeMatrix[3];
+        renderLight.color = Light->color;
+
+        ctx.lights.push_back(renderLight);
+    }
+
     for (auto &child : Children)
     {
         child->Draw(topMatrix, ctx);

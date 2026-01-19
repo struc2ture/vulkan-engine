@@ -374,6 +374,18 @@ void VulkanEngine::init_default_data()
     mainCamera.pitch = 0;
     mainCamera.yaw = 0;
 
+    sceneData.ambientColor = glm::vec4(0.1f);
+    sceneData.sunlightColor = glm::vec4(1.0f);
+    sceneData.sunlightDirection = glm::vec4(0,1,0.5,1.0f);
+
+    //sceneData.lightPos = glm::vec4(0.0f, 3.0f, 3.0f, 1.0f);
+    //sceneData.lightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+
+    sceneData.ambient = glm::vec4(0.1f);
+    sceneData.diffuse = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+    sceneData.specular = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+    sceneData.shininess = 32;
+
     auto scene = load_scene(this, "../../assets/struct_quinoa/struct_quinoa.gltf");
     assert(scene.has_value());
     _localScenes.push_back(scene.value());
@@ -856,6 +868,15 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
             destroy_buffer(sceneCommonDataBuffer);
             });
 
+        int lightI = 0;
+        for (auto &renderLight : mainDrawContext.lights)
+        {
+            sceneData.lightPos[lightI] = renderLight.position;
+            sceneData.lightColor[lightI] = renderLight.color;
+            lightI++;
+        }
+        sceneData.lightsUsed = lightI;
+
         SceneCommonData *sceneUniformData = (SceneCommonData *)sceneCommonDataBuffer.allocation->GetMappedData();
         *sceneUniformData = sceneData;
 
@@ -864,7 +885,6 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
         DescriptorWriter writer;
         writer.write_buffer(0, sceneCommonDataBuffer.buffer, sizeof(SceneCommonData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
         writer.update_set(_device, sceneCommonDataDescriptorSet);
-
     }
 
     // sort opaque geometry by material and mesh to minimize pipeline state switches
@@ -1053,6 +1073,7 @@ void VulkanEngine::update_scene()
 
     mainDrawContext.opaqueSurfaces.clear();
     mainDrawContext.transparentSurfaces.clear();
+    mainDrawContext.lights.clear();
     
     for (auto &scene : _localScenes)
     {
@@ -1061,13 +1082,10 @@ void VulkanEngine::update_scene()
 
     sceneData.view = mainCamera.getViewMatrix();
     sceneData.proj = glm::perspective(glm::radians(70.0f), (float)_windowExtent.width / (float)_windowExtent.height, 10000.0f, 0.1f);
+    sceneData.viewPos = glm::vec4(mainCamera.position, 1.0f);
 
     sceneData.proj[1][1] *= -1;
     sceneData.viewproj = sceneData.proj * sceneData.view;
-
-    sceneData.ambientColor = glm::vec4(0.1f);
-    sceneData.sunlightColor = glm::vec4(1.0f);
-    sceneData.sunlightDirection = glm::vec4(0,1,0.5,1.0f);
 
     auto end = std::chrono::system_clock::now();
 
@@ -1089,11 +1107,14 @@ void VulkanEngine::imgui_uis()
     if (_imguiSceneListWindow)
         imgui_scene_list();
 
-    if (_imguiLocalSceneInspectorWindow)
-        imgui_local_scene_inspector(_inspectedScene.lock());
+    if (_imguiSceneInspectorWindow)
+        imgui_scene_inspector(_inspectedScene.lock());
 
     if (_imguiCameraInspectorWindow)
         imgui_camera_inspector();
+
+    if (_imguiLightWindow)
+        imgui_light();
 
     if (_imguiDemoWindow)
         ImGui::ShowDemoWindow(&_imguiDemoWindow);
@@ -1106,8 +1127,9 @@ void VulkanEngine::imgui_uis()
             ImGui::MenuItem("Stats", "", &_imguiStatsWindow);
             ImGui::MenuItem("Render Objects", "", &_imguiRenderObjectsWindow);
             ImGui::MenuItem("Scene List", "", &_imguiSceneListWindow);
-            ImGui::MenuItem("Local Scene Inspector", "", &_imguiLocalSceneInspectorWindow);
+            ImGui::MenuItem("Local Scene Inspector", "", &_imguiSceneInspectorWindow);
             ImGui::MenuItem("Camera Inspector", "", &_imguiCameraInspectorWindow);
+            ImGui::MenuItem("Light", "", &_imguiLightWindow);
             ImGui::MenuItem("Imgui Demo Window", "", &_imguiDemoWindow);
             ImGui::EndMenu();
         }
@@ -1226,9 +1248,9 @@ void VulkanEngine::imgui_scene_list()
     ImGui::End();
 }
 
-void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<Scene> scene)
+void VulkanEngine::imgui_scene_inspector(std::shared_ptr<Scene> scene)
 {
-    if (ImGui::Begin("Local Scene Inspector", &_imguiLocalSceneInspectorWindow))
+    if (ImGui::Begin("Scene Inspector", &_imguiSceneInspectorWindow))
     {
         if (scene == nullptr)
         {
@@ -1548,6 +1570,33 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<Scene> scene)
             ImGui::TreePop();
         }
 
+        if (ImGui::TreeNode("Lights", "Lights: %d", scene->lights.size()))
+        {
+            int lightI = 0;
+            for (auto &light : scene->lights)
+            {
+                ImGui::PushID(light.get());
+                if (ImGui::TreeNode("", "%s[%d]", light->name.c_str(), lightI))
+                {
+                    ImGui::ColorEdit3("Color", &light->color.x);
+                    ImGui::TreePop();
+                }
+                ImGui::PopID();
+            }
+
+            static char addLightNameBuffer[256] = {};
+            ImGui::InputText("##addLightNameInput", addLightNameBuffer, 256);
+            ImGui::SameLine();
+            if (ImGui::Button("Add light"))
+            {
+                auto newLight = std::make_shared<SceneLight>();
+                newLight->name = addLightNameBuffer;
+                newLight->color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+                scene->lights.push_back(newLight);
+            }
+            ImGui::TreePop();
+        }
+
         if (ImGui::TreeNode("Nodes", "Nodes: %d", scene->nodes.size()))
         {
             for (auto &node : scene->nodes)
@@ -1593,55 +1642,99 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<Scene> scene)
                     if (node->Mesh != nullptr) ImGui::Text("Mesh: %s", node->Mesh->name.c_str());
                     else ImGui::Text("Mesh: none");
 
+                    if (node->Light != nullptr) ImGui::Text("Light: %s", node->Light->name.c_str());
+                    else ImGui::Text("Light: none");
+
                     ImGui::TreePop();
                 }
                 ImGui::PopID();
             }
 
-            if (scene->meshes.size() > 0)
-            {
-                static int selectedMesh = 0;
-                if (ImGui::BeginCombo("##addNodeMeshCombo", scene->meshes[selectedMesh]->name.c_str()))
-                {
-                    for (size_t meshI = 0; meshI < scene->meshes.size(); meshI++)
-                    {
-                        const bool isSelected = meshI == selectedMesh;
-                        if (ImGui::Selectable(scene->meshes[meshI]->name.c_str(), isSelected))
-                            selectedMesh = meshI;
+            static int selectedMesh = -1;
+            static int selectedLight = -1;
 
-                        if (isSelected)
-                            ImGui::SetItemDefaultFocus();
-                    }
-                    ImGui::EndCombo();
-                }
-
-                static char addNodeBuffer[256] = {};
-                ImGui::InputText("##addNodeInput", addNodeBuffer, 256);
-                ImGui::SameLine();
-
-                if (ImGui::Button("Add Node"))
-                {
-                    auto node = std::make_shared<SceneNode>();
-                    node->Name = addNodeBuffer;
-                    node->NodeId = (uint64_t)scene->meshes.size();
-                    node->Mesh = scene->meshes[selectedMesh];
-                    node->LocalTransform = glm::mat4 { 1.0f };
-
-                    scene->nodes.push_back(node);
-                    scene->topNodes.push_back(node);
-
-                    sceneDirty = true;
-                }
-            }
-            else
+            if (selectedLight >= 0)
             {
                 ImGui::BeginDisabled();
-                ImGui::Button("Add Node");
-                ImGui::EndDisabled();
-                if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
-                    ImGui::SetTooltip("No meshes in the scene");
             }
 
+            if (ImGui::BeginCombo("Mesh##addNodeMeshCombo", selectedMesh >= 0 ? scene->meshes[selectedMesh]->name.c_str() : "None"))
+            {
+                if (ImGui::Selectable("None", selectedMesh == -1))
+                    selectedMesh = -1;
+
+                if (selectedMesh == -1)
+                    ImGui::SetItemDefaultFocus();
+                    
+                for (size_t meshI = 0; meshI < scene->meshes.size(); meshI++)
+                {
+                    const bool isSelected = meshI == selectedMesh;
+                    if (ImGui::Selectable(scene->meshes[meshI]->name.c_str(), isSelected))
+                        selectedMesh = meshI;
+
+                    if (isSelected)
+                        ImGui::SetItemDefaultFocus();
+                }
+                ImGui::EndCombo();
+            }
+            
+            if (selectedLight >= 0)
+            {
+                ImGui::EndDisabled();
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
+                    ImGui::SetTooltip("Light selected");
+            }
+            
+            if (selectedMesh >= 0)
+            {
+                ImGui::BeginDisabled();
+            }
+
+            if (ImGui::BeginCombo("Light##addNodeLightCombo", selectedLight >= 0 ? scene->lights[selectedLight]->name.c_str() : "None"))
+            {
+                if (ImGui::Selectable("None", selectedLight == -1))
+                    selectedLight = -1;
+
+                if (selectedLight == -1)
+                    ImGui::SetItemDefaultFocus();
+
+                for (size_t lightI = 0; lightI < scene->lights.size(); lightI++)
+                {
+                    const bool isSelected = lightI == selectedLight;
+                    if (ImGui::Selectable(scene->lights[lightI]->name.c_str(), isSelected))
+                        selectedLight = lightI;
+
+                    if (isSelected)
+                        ImGui::SetItemDefaultFocus();
+                }
+                ImGui::EndCombo();
+            }
+
+            if (selectedMesh >= 0)
+            {
+                ImGui::EndDisabled();
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
+                    ImGui::SetTooltip("Mesh selected");
+            }
+
+            static char addNodeBuffer[256] = {};
+            ImGui::InputText("##addNodeInput", addNodeBuffer, 256);
+            ImGui::SameLine();
+
+            if (ImGui::Button("Add Node"))
+            {
+                auto node = std::make_shared<SceneNode>();
+                node->Name = addNodeBuffer;
+                node->NodeId = (uint64_t)scene->meshes.size();
+                node->Mesh = selectedMesh >= 0 ? scene->meshes[selectedMesh] : nullptr;
+                node->Light = selectedLight >= 0 ? scene->lights[selectedLight] : nullptr;
+                node->LocalTransform = glm::mat4 { 1.0f };
+
+                scene->nodes.push_back(node);
+                scene->topNodes.push_back(node);
+
+                sceneDirty = true;
+            }
             ImGui::TreePop();
         }
 
@@ -1654,11 +1747,29 @@ void VulkanEngine::imgui_local_scene_inspector(std::shared_ptr<Scene> scene)
     ImGui::End();
 }
 
+void VulkanEngine::imgui_light()
+{
+    if (ImGui::Begin("Light", &_imguiLightWindow))
+    {
+        //ImGui::DragFloat3("Light Position", &sceneData.lightPos.x);
+        //ImGui::ColorEdit3("Light Color", &sceneData.lightColor.x);
+        //ImGui::ColorEdit3("Light Ambient", &sceneData.lightAmbient.x);
+        //ImGui::ColorEdit3("Light Diffuse", &sceneData.lightDiffuse.x);
+        //ImGui::ColorEdit3("Light Specular", &sceneData.lightSpecular.x);
+
+        ImGui::ColorEdit3("Object Ambient", &sceneData.ambient.x);
+        ImGui::ColorEdit3("Object Diffuse", &sceneData.diffuse.x);
+        ImGui::ColorEdit3("Object Specular", &sceneData.specular.x);
+        ImGui::DragFloat("Shininess", &sceneData.shininess);
+    }
+    ImGui::End();
+}
+
 void VulkanEngine::imgui_camera_inspector()
 {
     if (ImGui::Begin("Camera Inspector", &_imguiCameraInspectorWindow))
     {
-        ImGui::InputFloat3("Position", &mainCamera.position.x);
+        ImGui::DragFloat3("Position", &mainCamera.position.x);
     }
     ImGui::End();
 }

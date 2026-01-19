@@ -64,6 +64,12 @@ struct SceneMesh
     GPUMeshBuffers meshBuffer;
 };
 
+struct SceneLight
+{
+    std::string name;
+    glm::vec4 color;
+};
+
 struct DrawContext;
 
 struct SceneNode
@@ -83,6 +89,7 @@ struct SceneNode
     glm::vec3 DebugWindow_Scale{1.0f};
 
     std::shared_ptr<SceneMesh> Mesh;
+    std::shared_ptr<SceneLight> Light;
 
     void RefreshTransform(const glm::mat4 &parentMatrix);
     void Draw(const glm::mat4 &topMatrix, DrawContext &ctx);
@@ -101,6 +108,8 @@ struct Scene
     std::vector<std::shared_ptr<SceneSampler>> samplers;
     std::vector<std::shared_ptr<SceneMaterial>> materials;
     std::vector<std::shared_ptr<SceneNode>> topNodes;
+
+    std::vector<std::shared_ptr<SceneLight>> lights;
 
     DescriptorAllocatorGrowable descriptorPool;
 

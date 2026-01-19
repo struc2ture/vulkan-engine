@@ -74,10 +74,17 @@ struct RenderObject
 	VkDeviceAddress vertexBufferAddress;
 };
 
+struct RenderLight
+{
+	glm::vec4 position;
+	glm::vec4 color;
+};
+
 struct DrawContext
 {
 	std::vector<RenderObject> opaqueSurfaces;
 	std::vector<RenderObject> transparentSurfaces;
+	std::vector<RenderLight> lights;
 };
 
 struct EngineStats
@@ -187,8 +194,9 @@ public:
 	bool _imguiSceneListWindow{ true };
 	bool _imguiDemoWindow{ false };
 	bool _imguiRenderObjectsWindow{ false };
-	bool _imguiLocalSceneInspectorWindow{ true };
+	bool _imguiSceneInspectorWindow{ true };
 	bool _imguiCameraInspectorWindow{ false };
+	bool _imguiLightWindow{ true };
 
 	void update_scene();
 
@@ -239,7 +247,8 @@ private:
 	void imgui_stats();
 	void imgui_render_objects();
 	void imgui_scene_list();
-	void imgui_local_scene_inspector(std::shared_ptr<Scene> scene);
+	void imgui_scene_inspector(std::shared_ptr<Scene> scene);
+	void imgui_light();
 	void imgui_camera_inspector();
 
 	void set_console_mode(bool state);

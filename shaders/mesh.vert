@@ -8,6 +8,7 @@
 layout (location = 0) out vec3 outNormal;
 layout (location = 1) out vec3 outColor;
 layout (location = 2) out vec2 outUV;
+layout (location = 3) out vec3 outFragPos;
 
 struct Vertex
 {
@@ -37,8 +38,11 @@ void main()
 	
 	gl_Position = sceneData.viewproj * PushConstants.render_matrix * position;
 	
-	outNormal = (PushConstants.render_matrix * vec4(v.normal, 0.f)).xyz;
+	mat3 normalMat = mat3(transpose(inverse(PushConstants.render_matrix)));
+	
+	outNormal = normalMat * v.normal;
 	outColor = v.color.rgb * materialData.colorFactors.rgb;
 	outUV.x = v.uv_x;
 	outUV.y = v.uv_y;
+	outFragPos = vec3(PushConstants.render_matrix * position);
 }

@@ -6,6 +6,21 @@ layout (set = 0, binding = 0) uniform SceneData
 	vec4 ambientColor;
 	vec4 sunlightDirection; // w for sun power
 	vec4 sunlightColor;
+	vec4 viewPos;
+	
+	vec4 lightPos[8];
+	vec4 lightColor[8];
+	//vec4 lightAmbient;
+	//vec4 lightDiffuse;
+	//vec4 lightSpecular;
+	
+	vec4 ambient;
+    vec4 diffuse;
+    vec4 specular;
+    float shininess;
+	
+	int lightsUsed;
+
 } sceneData;
 
 layout (set = 1, binding = 0) uniform GLTFMaterialData
