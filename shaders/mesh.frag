@@ -31,92 +31,90 @@ void main()
 	finalLight += ambient;
 	
 	// directional lights
-	/*
+	for (int i = 0; i < lightsData.dirsUsed; i++)
 	{
-		vec3 lightDirection = vec3(-0.2, -1.0, -0.3);
-		vec3 lightColor = vec3(1.0);
+		vec3 lightDirection = lightsData.dirDir[i].xyz;
+		vec3 lightColor = lightsData.dirColor[i].rgb;
+		float lightPower = lightsData.dirDir[i].w;
 		
 		vec3 lightDir = -lightDirection;
 		
 		// diffuse
 		float diff = max(dot(norm, lightDir), 0.0);
-		finalLight += lightColor.rgb * (diff * sceneData.diffuse.rgb);
+		
+		finalLight += lightColor * lightPower * diff * sceneData.diffuse.rgb;
 		
 		// specular
 		vec3 viewDir = normalize(sceneData.viewPos.xyz - inFragPos);
 		vec3 reflectDir = reflect(-lightDir, norm);
-		//float spec = pow(max(dot(viewDir, reflectDir), 0.0), sceneData.shininess);
 		vec3 halfwayDir = normalize(lightDir + viewDir);
 		float spec = pow(max(dot(norm, halfwayDir), 0.0), sceneData.shininess);
-		finalLight += lightColor.rgb * (spec * sceneData.specular.rgb);
+		
+		finalLight += lightColor * lightPower * spec * sceneData.specular.rgb;
 	}
-	*/
 	
 	// point lights
 	for (int i = 0; i < lightsData.pointsUsed; i++)
 	{
 		vec3 lightPos = lightsData.pointPos[i].xyz;
 		vec3 lightColor = lightsData.pointColor[i].rgb;
-		
-		// attenuation
 		float attenuationConstant = 1.0;
 		float attenuationLinear = lightsData.pointAtten[i].x;
 		float attenuationQuadratic = lightsData.pointAtten[i].y;
-		
+
+		// attenuation
 		float distance = length(lightPos - inFragPos);
 		float attenuation = 1.0 / (attenuationConstant + attenuationLinear * distance + attenuationQuadratic * distance * distance);
 		
 		// diffuse
 		vec3 lightDir = normalize(lightPos - inFragPos);
 		
-		float diff = max(dot(norm, lightDir), 0.0) * attenuation;
-		finalLight += lightColor * (diff * sceneData.diffuse.rgb);
+		float diff = max(dot(norm, lightDir), 0.0);
+		
+		finalLight += lightColor * diff * attenuation * sceneData.diffuse.rgb;
 		
 		// specular
 		vec3 viewDir = normalize(sceneData.viewPos.xyz - inFragPos);
 		vec3 reflectDir = reflect(-lightDir, norm);
-		//float spec = pow(max(dot(viewDir, reflectDir), 0.0), sceneData.shininess);
 		vec3 halfwayDir = normalize(lightDir + viewDir);
-		float spec = pow(max(dot(norm, halfwayDir), 0.0), sceneData.shininess) * attenuation;
-		finalLight += lightColor * (spec * sceneData.specular.rgb);
+		float spec = pow(max(dot(norm, halfwayDir), 0.0), sceneData.shininess);
+		
+		finalLight += lightColor * spec * attenuation * sceneData.specular.rgb;
 	}
 	
 	// spotlights
-	/*
+	for (int i = 0; i < lightsData.spotsUsed; i++)
 	{
-		vec3 lightPos = vec3(0.0, 1.0, 3.0);
-		vec3 spotDir = normalize(-lightPos);
-		vec3 lightColor = vec3(1.0);
-		float cutOff = cos(radians(5));
-		float outerCutoff = cos(radians(8));
+		vec3 lightPos = lightsData.spotPos[i].xyz;
+		vec3 lightColor = lightsData.spotColor[i].rgb;
+		vec3 spotDir = normalize(lightsData.spotDir[i].xyz);
+		float attenuationConstant = 1.0;
+		float attenuationLinear = lightsData.spotAttenCutoff[i].x;
+		float attenuationQuadratic = lightsData.spotAttenCutoff[i].y;
+		float cutOff = lightsData.spotAttenCutoff[i].z;
+		float outerCutoff = lightsData.spotAttenCutoff[i].w;
 		
 		// attenuation
-		float attenuationConstant = 1.0;
-		float attenuationLinear = 0.09;
-		float attenuationQuadratic = 0.032;
-		
-		float distance = length(lightPos.xyz - inFragPos);
+		float distance = length(lightPos - inFragPos);
 		float attenuation = 1.0 / (attenuationConstant + attenuationLinear * distance + attenuationQuadratic * distance * distance);
 
-		vec3 lightDir = normalize(lightPos.xyz - inFragPos);
+		vec3 lightDir = normalize(lightPos - inFragPos);
 		
 		float theta = dot(lightDir, normalize(-spotDir));
 		float epsilon = cutOff - outerCutoff;
 		float intensity = clamp((theta - outerCutoff) / epsilon, 0.0, 1.0);
 
 		// diffuse
-		float diff = max(dot(norm, lightDir), 0.0) * intensity * attenuation;
-		finalLight += lightColor.rgb * (diff * sceneData.diffuse.rgb);
+		float diff = max(dot(norm, lightDir), 0.0);
+		finalLight += lightColor * diff * intensity * attenuation * sceneData.diffuse.rgb;
 		
 		// specular
 		vec3 viewDir = normalize(sceneData.viewPos.xyz - inFragPos);
 		vec3 reflectDir = reflect(-lightDir, norm);
-		//float spec = pow(max(dot(viewDir, reflectDir), 0.0), sceneData.shininess);
 		vec3 halfwayDir = normalize(lightDir + viewDir);
-		float spec = pow(max(dot(norm, halfwayDir), 0.0), sceneData.shininess) * intensity * attenuation;
-		finalLight += lightColor.rgb * (spec * sceneData.specular.rgb);
+		float spec = pow(max(dot(norm, halfwayDir), 0.0), sceneData.shininess);
+		finalLight += lightColor * spec * intensity * attenuation * sceneData.specular.rgb;
 	}
-	*/
 	
 	vec3 finalColor = finalLight * albedo;
 	

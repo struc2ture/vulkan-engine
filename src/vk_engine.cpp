@@ -13,6 +13,8 @@
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_vulkan.h>
 #include <glm/gtx/transform.hpp>
+#include <glm/gtx/euler_angles.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 #include "vk_types.h"
 #include "vk_initializers.h"
@@ -1662,23 +1664,39 @@ void VulkanEngine::imgui_scene_inspector(std::shared_ptr<Scene> scene)
 
                     if (ImGui::TreeNode("Local Tranfsorm"))
                     {
-                        //ImGui::DragFloat4("##col0", &node->LocalTransform[0][0], 0.01f);
-                        //ImGui::DragFloat4("##col1", &node->LocalTransform[1][0], 0.01f);
-                        //ImGui::DragFloat4("##col2", &node->LocalTransform[2][0], 0.01f);
-                        //ImGui::DragFloat4("##col3", &node->LocalTransform[3][0], 0.01f);
-
                         node->DebugWindow_Position = glm::vec3(node->LocalTransform[3]);
+
+                        glm::mat3 R = glm::mat3(node->LocalTransform);
+
+                        // remove scale
+                        R[0] /= glm::length(R[0]);
+                        R[1] /= glm::length(R[1]);
+                        R[2] /= glm::length(R[2]);
+
+                        node->DebugWindow_RotEuler = glm::eulerAngles(glm::quat_cast(R));;
+                        node->DebugWindow_RotEuler.x = glm::degrees(node->DebugWindow_RotEuler.x);
+                        node->DebugWindow_RotEuler.y = glm::degrees(node->DebugWindow_RotEuler.y);
+                        node->DebugWindow_RotEuler.z = glm::degrees(node->DebugWindow_RotEuler.z);
+
+                        node->DebugWindow_Scale = {
+                            glm::length(glm::vec3(node->LocalTransform[0])),
+                            glm::length(glm::vec3(node->LocalTransform[1])),
+                            glm::length(glm::vec3(node->LocalTransform[2]))
+                        };
                         
                         if (ImGui::DragFloat3("Position", &node->DebugWindow_Position.x, 0.01f)) sceneDirty = true;
                         if (ImGui::DragFloat3("Rotation", &node->DebugWindow_RotEuler.x, 0.01f)) sceneDirty = true;
                         if (ImGui::DragFloat3("Scale", &node->DebugWindow_Scale.x, 0.01f)) sceneDirty = true;
 
-                        // TODO: Sync from decomposed transform to LocalTransform and back as part of Node
+                        node->DebugWindow_RotEuler.x = glm::radians(node->DebugWindow_RotEuler.x);
+                        node->DebugWindow_RotEuler.y = glm::radians(node->DebugWindow_RotEuler.y);
+                        node->DebugWindow_RotEuler.z = glm::radians(node->DebugWindow_RotEuler.z);
+
                         node->LocalTransform = glm::mat4{ 1.0f };
                         node->LocalTransform = glm::translate(node->LocalTransform, node->DebugWindow_Position);
-                        node->LocalTransform = glm::rotate(node->LocalTransform, node->DebugWindow_RotEuler.x, {1, 0, 0});
-                        node->LocalTransform = glm::rotate(node->LocalTransform, node->DebugWindow_RotEuler.y, {0, 1, 0});
                         node->LocalTransform = glm::rotate(node->LocalTransform, node->DebugWindow_RotEuler.z, {0, 0, 1});
+                        node->LocalTransform = glm::rotate(node->LocalTransform, node->DebugWindow_RotEuler.y, {0, 1, 0});
+                        node->LocalTransform = glm::rotate(node->LocalTransform, node->DebugWindow_RotEuler.x, {1, 0, 0});
                         node->LocalTransform = glm::scale(node->LocalTransform, node->DebugWindow_Scale);
 
                         ImGui::TreePop();
