@@ -74,17 +74,39 @@ struct RenderObject
 	VkDeviceAddress vertexBufferAddress;
 };
 
-struct RenderLight
+struct RenderLightDirectional
 {
-	glm::vec4 position;
+	glm::vec4 direction;
 	glm::vec4 color;
+};
+
+struct RenderLightPoint
+{
+	glm::vec4 pos;
+	glm::vec4 color;
+	float attenuationLinear;
+	float attenuationQuad;
+};
+
+struct RenderLightSpot
+{
+	glm::vec4 pos;
+	glm::vec4 direction;
+	glm::vec4 color;
+	float attenuationLinear;
+	float attenuationQuad;
+	float cutoff;
+	float outerCutoff;
 };
 
 struct DrawContext
 {
 	std::vector<RenderObject> opaqueSurfaces;
 	std::vector<RenderObject> transparentSurfaces;
-	std::vector<RenderLight> lights;
+
+	std::vector<RenderLightDirectional> directionalLights;
+	std::vector<RenderLightPoint> pointLights;
+	std::vector<RenderLightSpot> spotLights;
 };
 
 struct EngineStats

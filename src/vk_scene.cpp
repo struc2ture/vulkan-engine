@@ -160,13 +160,36 @@ void SceneNode::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
     {
         glm::mat4 nodeMatrix = topMatrix * WorldTransform;
 
-        RenderLight renderLight;
-        renderLight.position = nodeMatrix[3];
-        renderLight.color = Light->color;
-
-        //fmt::println("renderLight.position: {}, {}, {}", renderLight.position.x, renderLight.position.y, renderLight.position.z);
-
-        ctx.lights.push_back(renderLight);
+        switch (Light->Kind)
+        {
+        case SceneLight::Kind::Directional:
+        {
+            RenderLightDirectional directionalLight;
+            //directionalLight.direction = nodeMatrix[3];
+            directionalLight.color = Light->Color;
+            ctx.directionalLights.push_back(directionalLight);
+        } break;
+        case SceneLight::Kind::Point:
+        {
+            RenderLightPoint pointLight;
+            pointLight.pos = nodeMatrix[3];
+            pointLight.color = Light->Color;
+            pointLight.attenuationLinear = Light->AttenuationLinear;
+            pointLight.attenuationQuad = Light->AttenuationQuad;
+            ctx.pointLights.push_back(pointLight);
+        } break;
+        case SceneLight::Kind::Spotlight:
+        {
+            RenderLightSpot spotLight;
+            spotLight.pos = nodeMatrix[3];
+            spotLight.color = Light->Color;
+            spotLight.attenuationLinear = Light->AttenuationLinear;
+            spotLight.attenuationQuad = Light->AttenuationQuad;
+            spotLight.cutoff = Light->Cutoff;
+            spotLight.outerCutoff = Light->OuterCutoff;
+            ctx.spotLights.push_back(spotLight);
+        } break;
+        }
     }
 
     for (auto &child : Children)

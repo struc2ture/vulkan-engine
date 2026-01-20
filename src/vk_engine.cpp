@@ -868,6 +868,9 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
     DescriptorWriter writer;
 
     // Lights data (binding 1)
+    int dirLightI = 0;
+    int pointLightI = 0;
+    int spotLightI = 0;
     {
         AllocatedBuffer lightsDataBuffer = create_buffer(sizeof(LightsData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
         get_current_frame()._deletionQueue.push_function([=, this]() {
@@ -875,15 +878,36 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
         });
 
         LightsData lightsData {};
-        int lightI = 0;
-        for (auto &renderLight : mainDrawContext.lights)
+
+        for (auto &directionalLight : mainDrawContext.directionalLights)
         {
-            lightsData.lightPos[lightI] = renderLight.position;
-            lightsData.lightColor[lightI] = renderLight.color;
-            lightI++;
+            lightsData.dirDir[dirLightI] = directionalLight.direction;
+            lightsData.dirColor[dirLightI] = directionalLight.color;
+            dirLightI++;
         }
-        lightsData.lightsUsed = lightI;
-        assert(lightI <= MAX_LIGHTS);
+        lightsData.dirsUsed = dirLightI;
+        assert(lightsData.dirsUsed <= MAX_LIGHTS);
+
+        for (auto &pointLight : mainDrawContext.pointLights)
+        {
+            lightsData.pointPos[pointLightI] = pointLight.pos;
+            lightsData.pointColor[pointLightI] = pointLight.color;
+            lightsData.pointAtten[pointLightI] = glm::vec4 { pointLight.attenuationLinear, pointLight.attenuationQuad, 0.0f, 0.0f };
+            pointLightI++;
+        }
+        lightsData.pointsUsed = pointLightI;
+        assert(lightsData.pointsUsed <= MAX_LIGHTS);
+
+        for (auto &spotLight : mainDrawContext.spotLights)
+        {
+            lightsData.spotPos[spotLightI] = spotLight.pos;
+            lightsData.spotDir[spotLightI] = spotLight.direction;
+            lightsData.spotColor[spotLightI] = spotLight.color;
+            lightsData.spotAttenCutoff[pointLightI] = glm::vec4 { spotLight.attenuationLinear, spotLight.attenuationQuad, spotLight.cutoff, spotLight.outerCutoff };
+            spotLightI++;
+        }
+        lightsData.spotsUsed = spotLightI;
+        assert(lightsData.spotsUsed <= MAX_LIGHTS);
 
         LightsData *lightsDataRemote = (LightsData *)lightsDataBuffer.allocation->GetMappedData();
         *lightsDataRemote = lightsData;
@@ -898,6 +922,8 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
         get_current_frame()._deletionQueue.push_function([=, this]() {
             destroy_buffer(sceneCommonDataBuffer);
         });
+
+        sceneData.pointsUsed = pointLightI;
 
         SceneCommonData *sceneUniformDataRemote = (SceneCommonData *)sceneCommonDataBuffer.allocation->GetMappedData();
         *sceneUniformDataRemote = sceneData;
@@ -1093,7 +1119,9 @@ void VulkanEngine::update_scene()
 
     mainDrawContext.opaqueSurfaces.clear();
     mainDrawContext.transparentSurfaces.clear();
-    mainDrawContext.lights.clear();
+    mainDrawContext.directionalLights.clear();
+    mainDrawContext.pointLights.clear();
+    mainDrawContext.spotLights.clear();
     
     for (auto &scene : _localScenes)
     {
@@ -1596,9 +1624,12 @@ void VulkanEngine::imgui_scene_inspector(std::shared_ptr<Scene> scene)
             for (auto &light : scene->lights)
             {
                 ImGui::PushID(light.get());
-                if (ImGui::TreeNode("", "%s[%d]", light->name.c_str(), lightI))
+                if (ImGui::TreeNode("", "%s[%d]", light->Name.c_str(), lightI))
                 {
-                    ImGui::ColorEdit3("Color", &light->color.x);
+                    ImGui::Text("Kind: %s", light->Kind == SceneLight::Kind::Directional ? "Directional" : (light->Kind == SceneLight::Kind::Point ? "Point" : (light->Kind == SceneLight::Kind::Spotlight ? "Spotlight" : "Unknown")));
+                    ImGui::ColorEdit3("Color", &light->Color.x);
+                    ImGui::DragFloat("Attenuation Linear", &light->AttenuationLinear, 0.01f);
+                    ImGui::DragFloat("Attenuation Quad", &light->AttenuationQuad, 0.01f);
                     ImGui::TreePop();
                 }
                 ImGui::PopID();
@@ -1610,8 +1641,9 @@ void VulkanEngine::imgui_scene_inspector(std::shared_ptr<Scene> scene)
             if (ImGui::Button("Add light"))
             {
                 auto newLight = std::make_shared<SceneLight>();
-                newLight->name = addLightNameBuffer;
-                newLight->color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+                newLight->Kind = SceneLight::Kind::Point;
+                newLight->Name = addLightNameBuffer;
+                newLight->Color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
                 scene->lights.push_back(newLight);
             }
             ImGui::TreePop();
@@ -1664,7 +1696,7 @@ void VulkanEngine::imgui_scene_inspector(std::shared_ptr<Scene> scene)
                     if (node->Mesh != nullptr) ImGui::Text("Mesh: %s", node->Mesh->name.c_str());
                     else ImGui::Text("Mesh: none");
 
-                    if (node->Light != nullptr) ImGui::Text("Light: %s", node->Light->name.c_str());
+                    if (node->Light != nullptr) ImGui::Text("Light: %s", node->Light->Name.c_str());
                     else ImGui::Text("Light: none");
 
                     ImGui::TreePop();
@@ -1712,7 +1744,7 @@ void VulkanEngine::imgui_scene_inspector(std::shared_ptr<Scene> scene)
                 ImGui::BeginDisabled();
             }
 
-            if (ImGui::BeginCombo("Light##addNodeLightCombo", selectedLight >= 0 ? scene->lights[selectedLight]->name.c_str() : "None"))
+            if (ImGui::BeginCombo("Light##addNodeLightCombo", selectedLight >= 0 ? scene->lights[selectedLight]->Name.c_str() : "None"))
             {
                 if (ImGui::Selectable("None", selectedLight == -1))
                     selectedLight = -1;
@@ -1723,7 +1755,7 @@ void VulkanEngine::imgui_scene_inspector(std::shared_ptr<Scene> scene)
                 for (size_t lightI = 0; lightI < scene->lights.size(); lightI++)
                 {
                     const bool isSelected = lightI == selectedLight;
-                    if (ImGui::Selectable(scene->lights[lightI]->name.c_str(), isSelected))
+                    if (ImGui::Selectable(scene->lights[lightI]->Name.c_str(), isSelected))
                         selectedLight = lightI;
 
                     if (isSelected)
@@ -1766,8 +1798,11 @@ void VulkanEngine::imgui_scene_inspector(std::shared_ptr<Scene> scene)
             scene->meshes.push_back(cubeDebugMesh);
 
             auto newLight = std::make_shared<SceneLight>();
-            newLight->color = glm::vec4(1.0f);
-            newLight->name = "Random light";
+            newLight->Kind = SceneLight::Kind::Point;
+            newLight->Color = glm::vec4(1.0f);
+            newLight->AttenuationLinear = 0.14f;
+            newLight->AttenuationQuad = 0.07f;;
+            newLight->Name = "Random light";
             scene->lights.push_back(newLight);
 
             auto newNode = std::make_shared<SceneNode>();

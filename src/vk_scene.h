@@ -66,8 +66,21 @@ struct SceneMesh
 
 struct SceneLight
 {
-    std::string name;
-    glm::vec4 color;
+    enum class Kind
+    {
+        Directional,
+        Point,
+        Spotlight
+    };
+
+    Kind Kind;
+
+    std::string Name;
+    glm::vec4 Color;
+    float AttenuationLinear;
+    float AttenuationQuad;
+    float Cutoff;
+    float OuterCutoff;
 };
 
 struct DrawContext;

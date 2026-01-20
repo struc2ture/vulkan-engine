@@ -89,17 +89,33 @@ struct SceneCommonData
     glm::vec4 diffuse;
     glm::vec4 specular;
     float shininess;
+
+    int dirsUsed;
+    int pointsUsed;
+    int spotsUsed;
 };
 
-#define MAX_LIGHTS 128
+#define MAX_LIGHTS 64
 
-// omni lights
 struct LightsData
 {
-    glm::vec4 lightPos[MAX_LIGHTS];
-    glm::vec4 lightColor[MAX_LIGHTS];
-    int lightsUsed;
+    // directional lights
+    glm::vec4 dirDir[MAX_LIGHTS]; // w for power
+    glm::vec4 dirColor[MAX_LIGHTS];
+
+    // point lights
+    glm::vec4 pointPos[MAX_LIGHTS];
+    glm::vec4 pointColor[MAX_LIGHTS];
+    glm::vec4 pointAtten[MAX_LIGHTS]; // x - linear, y - quad
+
+    // spotlights
+    glm::vec4 spotPos[MAX_LIGHTS];
+    glm::vec4 spotDir[MAX_LIGHTS];
+    glm::vec4 spotColor[MAX_LIGHTS];
+    glm::vec4 spotAttenCutoff[MAX_LIGHTS]; // x - linear, y - quad, z - cutoff, w - outer cutoff
+    
+    int dirsUsed;
+    int pointsUsed;
+    int spotsUsed;
 };
 
-// spotlights
-// directional lights

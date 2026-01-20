@@ -18,15 +18,34 @@ layout (set = 0, binding = 0) uniform SceneData
     vec4 diffuse;
     vec4 specular;
     float shininess;
-	
+	    
+    int dirsUsed;
+    int pointsUsed;
+    int spotsUsed;
+
 } sceneData;
 
-#define MAX_LIGHTS 128
+#define MAX_LIGHTS 64
 layout (set = 0, binding = 1) uniform LightsData
 {
-	vec4 lightPos[MAX_LIGHTS];
-	vec4 lightColor[MAX_LIGHTS];
-	int lightsUsed;
+    // directional lights
+    vec4 dirDir[MAX_LIGHTS]; // w for power
+    vec4 dirColor[MAX_LIGHTS];
+
+    // point lights
+    vec4 pointPos[MAX_LIGHTS];
+    vec4 pointColor[MAX_LIGHTS];
+    vec4 pointAtten[MAX_LIGHTS]; // x - linear, y - quad
+
+    // spotlights
+    vec4 spotPos[MAX_LIGHTS];
+    vec4 spotDir[MAX_LIGHTS];
+    vec4 spotColor[MAX_LIGHTS];
+    vec4 spotAttenCutoff[MAX_LIGHTS]; // x - linear, y - quad, z - cutoff, w - outer cutoff
+    
+    int dirsUsed;
+	int pointsUsed;
+	int spotsUsed;
 
 } lightsData;
 
