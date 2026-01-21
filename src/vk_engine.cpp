@@ -322,7 +322,8 @@ void VulkanEngine::init_descriptors()
 void VulkanEngine::init_pipelines()
 {
     init_background_pipelines();
-    MaterialBuilder.BuildPipelines(this);
+    StandardMaterial.BuildPipelines(this);
+    RetroMaterial.BuildPipelines(this);
 }
 
 void VulkanEngine::init_default_data()
@@ -380,17 +381,7 @@ void VulkanEngine::init_default_data()
     mainCamera.pitch = 0;
     mainCamera.yaw = 0;
 
-    sceneData.ambientColor = glm::vec4(0.1f);
-    sceneData.sunlightColor = glm::vec4(1.0f);
-    sceneData.sunlightDirection = glm::vec4(0,1,0.5,1.0f);
-
-    //sceneData.lightPos = glm::vec4(0.0f, 3.0f, 3.0f, 1.0f);
-    //sceneData.lightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-
     sceneData.ambient = glm::vec4(0.1f);
-    sceneData.diffuse = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-    sceneData.specular = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-    sceneData.shininess = 32;
 
     auto scene = load_scene(this, "../../assets/struct_quinoa/struct_quinoa.gltf");
     assert(scene.has_value());
@@ -723,8 +714,8 @@ void VulkanEngine::cleanup()
 
         _localScenes.clear();
 
-        MaterialBuilder.DestroyPipelines(_device);
-
+        StandardMaterial.DestroyPipelines(_device);
+        RetroMaterial.DestroyPipelines(_device);
 
         for (int i = 0; i < FRAME_OVERLAP; i++)
         {
@@ -925,8 +916,6 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
             destroy_buffer(sceneCommonDataBuffer);
         });
 
-        sceneData.pointsUsed = pointLightI;
-
         SceneCommonData *sceneUniformDataRemote = (SceneCommonData *)sceneCommonDataBuffer.allocation->GetMappedData();
         *sceneUniformDataRemote = sceneData;
 
@@ -972,15 +961,15 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
     MaterialInstance *lastMaterial = nullptr;
     VkBuffer lastIndexBuffer = VK_NULL_HANDLE;
 
-    auto draw = [&](const RenderObject &r)
+    auto draw = [&](const RenderObject &renderObject)
     {
-        if (r.material != lastMaterial)
+        if (renderObject.material != lastMaterial)
         {
-            if (r.material->pipeline != lastPipeline)
+            if (renderObject.material->pipeline != lastPipeline)
             {
-                lastPipeline = r.material->pipeline;
-                vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, r.material->pipeline->pipeline);
-                vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, r.material->pipeline->layout, 0, 1, &sceneCommonDataDescriptorSet, 0, nullptr);
+                lastPipeline = renderObject.material->pipeline;
+                vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderObject.material->pipeline->pipeline);
+                vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderObject.material->pipeline->layout, 0, 1, &sceneCommonDataDescriptorSet, 0, nullptr);
                 
                 VkViewport viewport = {};
                 viewport.x = 0;
@@ -1001,24 +990,24 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
                 vkCmdSetScissor(cmd, 0, 1, &scissor);
             }
             
-            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, r.material->pipeline->layout, 1, 1, &r.material->materialSet, 0, nullptr);
+            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderObject.material->pipeline->layout, 1, 1, &renderObject.material->materialSet, 0, nullptr);
         }
 
-        if (r.indexBuffer != lastIndexBuffer)
+        if (renderObject.indexBuffer != lastIndexBuffer)
         {
-            lastIndexBuffer = r.indexBuffer;
-            vkCmdBindIndexBuffer(cmd, r.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+            lastIndexBuffer = renderObject.indexBuffer;
+            vkCmdBindIndexBuffer(cmd, renderObject.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
         }
 
         GeometryPushConstants pushConstants;
-        pushConstants.worldMatrix = r.transform;
-        pushConstants.vertexBuffer = r.vertexBufferAddress;
-        vkCmdPushConstants(cmd, r.material->pipeline->layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GeometryPushConstants), &pushConstants);
+        pushConstants.worldMatrix = renderObject.transform;
+        pushConstants.vertexBuffer = renderObject.vertexBufferAddress;
+        vkCmdPushConstants(cmd, renderObject.material->pipeline->layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GeometryPushConstants), &pushConstants);
 
-        vkCmdDrawIndexed(cmd, r.indexCount, 1, r.firstIndex, 0, 0);
+        vkCmdDrawIndexed(cmd, renderObject.indexCount, 1, renderObject.firstIndex, 0, 0);
 
         stats.drawcall_count ++;
-        stats.triangle_count += r.indexCount / 3;
+        stats.triangle_count += renderObject.indexCount / 3;
     };
 
     for (auto &i : opaque_draws)
@@ -1163,9 +1152,6 @@ void VulkanEngine::imgui_uis()
     if (_imguiCameraInspectorWindow)
         imgui_camera_inspector();
 
-    if (_imguiLightWindow)
-        imgui_light();
-
     if (_imguiDemoWindow)
         ImGui::ShowDemoWindow(&_imguiDemoWindow);
 
@@ -1179,7 +1165,6 @@ void VulkanEngine::imgui_uis()
             ImGui::MenuItem("Scene List", "", &_imguiSceneListWindow);
             ImGui::MenuItem("Local Scene Inspector", "", &_imguiSceneInspectorWindow);
             ImGui::MenuItem("Camera Inspector", "", &_imguiCameraInspectorWindow);
-            ImGui::MenuItem("Light", "", &_imguiLightWindow);
             ImGui::MenuItem("Imgui Demo Window", "", &_imguiDemoWindow);
             ImGui::EndMenu();
         }
@@ -1360,20 +1345,20 @@ void VulkanEngine::imgui_scene_inspector(std::shared_ptr<Scene> scene)
                                 ImGui::Text("Index Count: %u", primitive.indexCount);
                                 ImGui::Text("Bounds: %.1f, %.1f, %.1f", primitive.bounds.origin.x, primitive.bounds.origin.y, primitive.bounds.origin.z);
 
-                                if (ImGui::BeginCombo("##materialCombo", primitive.material->name.c_str()))
+                                if (ImGui::BeginCombo("##materialCombo", primitive.retroMaterial->name.c_str()))
                                 {
-                                    auto oldMaterial = primitive.material;
-                                    for (auto &material : scene->materials)
+                                    auto oldMaterial = primitive.retroMaterial;
+                                    for (auto &material : scene->retroMaterials)
                                     {
-                                        const bool isSelected = material == primitive.material;
+                                        const bool isSelected = material == primitive.retroMaterial;
                                         if (ImGui::Selectable(material->name.c_str(), isSelected))
-                                            primitive.material = material;
+                                            primitive.retroMaterial = material;
 
                                         if (isSelected)
                                             ImGui::SetItemDefaultFocus();
                                     }
                                     ImGui::EndCombo();
-                                    if (oldMaterial != primitive.material) sceneDirty = true;
+                                    if (oldMaterial != primitive.retroMaterial) sceneDirty = true;
                                 }
 
                                 ImGui::TreePop();
@@ -1388,7 +1373,7 @@ void VulkanEngine::imgui_scene_inspector(std::shared_ptr<Scene> scene)
                 ImGui::PopID();
             }
 
-            if (scene->materials.size() > 0)
+            if (scene->retroMaterials.size() > 0)
             {
                 const char* meshTypes[] = { "Empty", "Cube", "Cylinder" };
                 static int meshType = 0;
@@ -1399,10 +1384,10 @@ void VulkanEngine::imgui_scene_inspector(std::shared_ptr<Scene> scene)
                     switch (meshType)
                     {
                     case 1:
-                        scene->meshes.push_back(local_mesh_cube("Cube", scene->materials[0]));
+                        scene->meshes.push_back(local_mesh_cube("Cube", scene->retroMaterials[0]));
                         break;
                     case 2:
-                        scene->meshes.push_back(local_mesh_cylinder("Cylinder", scene->materials[0]));
+                        scene->meshes.push_back(local_mesh_cylinder("Cylinder", scene->retroMaterials[0]));
                         break;
                     default:
                         scene->meshes.push_back(local_mesh_empty("Empty"));
@@ -1514,6 +1499,7 @@ void VulkanEngine::imgui_scene_inspector(std::shared_ptr<Scene> scene)
 
             ImGui::TreePop();
         }
+
         if (ImGui::TreeNode("Materials", "Materials: %d", scene->materials.size()))
         {
             for (auto &material : scene->materials)
@@ -1599,7 +1585,7 @@ void VulkanEngine::imgui_scene_inspector(std::shared_ptr<Scene> scene)
             ImGui::SameLine();
             if (ImGui::Button("Add Material"))
             {
-                MaterialParameters material_params {};
+                StandardMaterialParameters material_params {};
                 material_params.colorFactors.r = 1.0f;
                 material_params.colorFactors.g = 1.0f;
                 material_params.colorFactors.b = 1.0f;
@@ -1614,6 +1600,114 @@ void VulkanEngine::imgui_scene_inspector(std::shared_ptr<Scene> scene)
                 newMaterial->passType = MaterialPass::MainColor;
                 newMaterial->name = addMaterialBuffer;
                 scene->materials.push_back(newMaterial);
+                sceneDirty = true;
+            }
+
+            ImGui::TreePop();
+        }
+
+        if (ImGui::TreeNode("Retro Materials", "Retro Materials: %d", scene->retroMaterials.size()))
+        {
+            for (auto &material : scene->retroMaterials)
+            {
+                ImGui::PushID(material.get());
+                if (ImGui::TreeNode("", "%s", material->name.c_str()))
+                {
+                    if (material->hasDiffuseImage)
+                    {
+                        ImGui::Text("Diffuse image: %s", material->diffuseImage->name.c_str());
+                        ImGui::Text("Diffuse sampler: %p", material->diffuseSampler.get());
+                        if (ImGui::Button("Remove Diffuse Image"))
+                        {
+                            material->hasDiffuseImage = false;
+                            material->diffuseImage.reset();
+                            material->diffuseSampler.reset();
+                            sceneDirty = true;
+                        }
+                    }
+                    else
+                    {
+                        //scene->images
+                        if (scene->images.size() > 0 && scene->samplers.size() > 0)
+                        {
+                            static int selectedImage = 0;
+                            if (ImGui::BeginCombo("##colorImageCombo", scene->images[selectedImage]->name.c_str()))
+                            {
+                                for (size_t imageI = 0; imageI < scene->images.size(); imageI++)
+                                {
+                                    const bool isSelected = imageI == selectedImage;
+                                    if (ImGui::Selectable(scene->images[imageI]->name.c_str(), isSelected))
+                                        selectedImage = imageI;
+
+                                    if (isSelected)
+                                        ImGui::SetItemDefaultFocus();
+                                }
+                                ImGui::EndCombo();
+                            }
+
+                            static int selectedSampler = 0;
+                            if (ImGui::BeginCombo("##colorSamplerCombo", scene->samplers[selectedSampler]->name.c_str()))
+                            {
+                                for (size_t samplerI = 0; samplerI < scene->samplers.size(); samplerI++)
+                                {
+                                    const bool isSelected = samplerI == selectedSampler;
+                                    if (ImGui::Selectable(scene->samplers[samplerI]->name.c_str(), isSelected))
+                                        selectedSampler = samplerI;
+
+                                    if (isSelected)
+                                        ImGui::SetItemDefaultFocus();
+                                }
+                                ImGui::EndCombo();
+                            }
+
+                            if (ImGui::Button("Add Color Image"))
+                            {
+                                material->diffuseImage = scene->images[selectedImage];
+                                material->diffuseSampler = scene->samplers[selectedSampler];
+                                material->hasDiffuseImage = true;
+                                sceneDirty = true;
+                            }
+                        }
+                        else
+                        {
+                            ImGui::BeginDisabled();
+                            ImGui::Button("Add Color Image");
+                            ImGui::EndDisabled();
+                            if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
+                                ImGui::SetTooltip("No image or sampler in the scene.");
+                        }
+                    }
+                    if (ImGui::ColorEdit4("Diffuse", &material->params.diffuse.r)) sceneDirty = true;
+                    if (ImGui::ColorEdit3("Specular", &material->params.specular.r)) sceneDirty = true;
+                    if (ImGui::DragFloat("Specular Shininess", &material->params.specular.a, 0.01f)) sceneDirty = true;
+                    ImGui::Text("Pass: %s", (material->passType == MaterialPass::MainColor) ? "Opaque" : "Transparent");
+                    ImGui::TreePop();
+                }
+                ImGui::PopID();
+            }
+
+            static char addMaterialBuffer[256];
+            ImGui::InputText("##addRetroMaterialInput", addMaterialBuffer, 256);
+            ImGui::SameLine();
+            if (ImGui::Button("Add Retro Material"))
+            {
+                RetroMaterialParameters materialParams {};
+                materialParams.diffuse.r = 1.0f;
+                materialParams.diffuse.g = 1.0f;
+                materialParams.diffuse.b = 1.0f;
+                materialParams.diffuse.a = 1.0f;
+
+                materialParams.specular.r = 1.0f;
+                materialParams.specular.g = 1.0f;
+                materialParams.specular.b = 1.0f;
+                materialParams.specular.a = 32.0f; // shininess
+
+                auto newMaterial = std::make_shared<SceneRetroMaterial>();
+                newMaterial->params = materialParams;
+                newMaterial->hasDiffuseImage = false;
+                newMaterial->passType = MaterialPass::MainColor;
+                newMaterial->name = addMaterialBuffer;
+                scene->retroMaterials.push_back(newMaterial);
                 sceneDirty = true;
             }
 
@@ -1860,7 +1954,7 @@ void VulkanEngine::imgui_scene_inspector(std::shared_ptr<Scene> scene)
 
         if (ImGui::Button("Add point light"))
         {
-            auto cubeDebugMesh = local_mesh_cube("Light Debug Cube", scene->materials[0]);
+            auto cubeDebugMesh = local_mesh_cube("Light Debug Cube", scene->retroMaterials[0]);
             scene->meshes.push_back(cubeDebugMesh);
 
             auto newLight = std::make_shared<SceneLight>();
@@ -1892,7 +1986,7 @@ void VulkanEngine::imgui_scene_inspector(std::shared_ptr<Scene> scene)
 
         if (ImGui::Button("Add spotlight"))
         {
-            auto cubeDebugMesh = local_mesh_cube("Light Debug Cube", scene->materials[0]);
+            auto cubeDebugMesh = local_mesh_cube("Light Debug Cube", scene->retroMaterials[0]);
             scene->meshes.push_back(cubeDebugMesh);
 
             auto newLight = std::make_shared<SceneLight>();
@@ -1941,24 +2035,6 @@ void VulkanEngine::imgui_scene_inspector(std::shared_ptr<Scene> scene)
             scene->_clearGPUData();
             scene->SyncToGPU();
         }
-    }
-    ImGui::End();
-}
-
-void VulkanEngine::imgui_light()
-{
-    if (ImGui::Begin("Light", &_imguiLightWindow))
-    {
-        //ImGui::DragFloat3("Light Position", &sceneData.lightPos.x);
-        //ImGui::ColorEdit3("Light Color", &sceneData.lightColor.x);
-        //ImGui::ColorEdit3("Light Ambient", &sceneData.lightAmbient.x);
-        //ImGui::ColorEdit3("Light Diffuse", &sceneData.lightDiffuse.x);
-        //ImGui::ColorEdit3("Light Specular", &sceneData.lightSpecular.x);
-
-        ImGui::ColorEdit3("Object Ambient", &sceneData.ambient.x);
-        ImGui::ColorEdit3("Object Diffuse", &sceneData.diffuse.x);
-        ImGui::ColorEdit3("Object Specular", &sceneData.specular.x);
-        ImGui::DragFloat("Shininess", &sceneData.shininess);
     }
     ImGui::End();
 }

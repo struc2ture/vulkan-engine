@@ -207,7 +207,8 @@ public:
 
 	bool _consoleMode;
 
-	StandardMaterial MaterialBuilder;
+	StandardMaterial StandardMaterial;
+	RetroMaterial RetroMaterial;
 
 	std::vector<std::shared_ptr<Scene>> _localScenes;
 	std::weak_ptr<Scene> _inspectedScene;
@@ -221,7 +222,6 @@ public:
 	bool _imguiRenderObjectsWindow{ false };
 	bool _imguiSceneInspectorWindow{ true };
 	bool _imguiCameraInspectorWindow{ false };
-	bool _imguiLightWindow{ true };
 
 	void update_scene();
 
@@ -273,7 +273,6 @@ private:
 	void imgui_render_objects();
 	void imgui_scene_list();
 	void imgui_scene_inspector(std::shared_ptr<Scene> scene);
-	void imgui_light();
 	void imgui_camera_inspector();
 
 	void set_console_mode(bool state);

@@ -10,7 +10,7 @@ enum class MaterialPass : uint8_t
     Other
 };
 
-struct MaterialParameters
+struct StandardMaterialParameters
 {
     glm::vec4 colorFactors;
     glm::vec4 metal_rough_factors;
@@ -40,6 +40,40 @@ struct StandardMaterial
 		VkSampler ColorSampler;
 		AllocatedImage MetalRoughImage;
 		VkSampler MetalRoughSampler;
+		VkBuffer MaterialParamDataBuffer;
+		uint32_t MaterialParamDataBufferOffset;
+	};
+
+	MaterialPipeline OpaquePipeline;
+	MaterialPipeline TransparentPipeline;
+
+	VkDescriptorSetLayout DescriptorLayout;
+
+	DescriptorWriter Writer;
+
+	void BuildPipelines(VulkanEngine *engine);
+	void DestroyPipelines(VkDevice device);
+
+	MaterialInstance InstantiateMaterial(VkDevice device, MaterialPass pass, const Resources &resources, DescriptorAllocatorGrowable &descriptorAllocator);
+};
+
+struct RetroMaterialParameters
+{
+	glm::vec4 diffuse;
+	glm::vec4 specular; // a - shininess
+	glm::vec4 extra[14];
+};
+
+struct RetroMaterial
+{
+	struct Resources
+	{
+		AllocatedImage DiffuseImage;
+		VkSampler DiffuseSampler;
+		//AllocatedImage SpecularImage;
+		//VkSampler SpecularSampler;
+		//AllocatedImage NormalImage;
+		//VkSampler NormalSampler;
 		VkBuffer MaterialParamDataBuffer;
 		uint32_t MaterialParamDataBufferOffset;
 	};

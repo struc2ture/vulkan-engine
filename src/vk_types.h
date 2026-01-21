@@ -79,20 +79,8 @@ struct SceneCommonData
     glm::mat4 view;
     glm::mat4 proj;
     glm::mat4 viewproj;
-    glm::vec4 ambientColor;
-    glm::vec4 sunlightDirection; // w for sun power
-    glm::vec4 sunlightColor;
-    glm::vec4 viewPos;
-
-    // kind of hardcoded material. won't be here for long
     glm::vec4 ambient;
-    glm::vec4 diffuse;
-    glm::vec4 specular;
-    float shininess;
-
-    int dirsUsed;
-    int pointsUsed;
-    int spotsUsed;
+    glm::vec4 viewPos;
 };
 
 #define MAX_LIGHTS 64

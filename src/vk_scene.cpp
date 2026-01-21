@@ -61,26 +61,60 @@ void Scene::SyncToGPU()
         }
     }
 
-    materialDataBuffer = engine->create_buffer(sizeof(MaterialParameters) * materials.size(), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-    auto mappedParamsPtr = (MaterialParameters *)materialDataBuffer.info.pMappedData;
-
-    int materialI = 0;
-
-    for (auto &material : materials)
+    if (materials.size() > 0)
     {
-        mappedParamsPtr[materialI] = material->params;
+        materialDataBuffer = engine->create_buffer(sizeof(StandardMaterialParameters) * materials.size(), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+        auto mappedParamsPtr = (StandardMaterialParameters *)materialDataBuffer.info.pMappedData;
 
-        StandardMaterial::Resources resources {};
-        resources.ColorImage = material->hasColorImage ? material->colorImage->allocatedImage : engine->_whiteImage;
-        resources.ColorSampler = material->hasColorImage ? material->colorSampler->vkSampler : engine->_defaultSamplerLinear;
-        resources.MetalRoughImage = engine->_whiteImage;
-        resources.MetalRoughSampler = engine->_defaultSamplerLinear;
-        resources.MaterialParamDataBuffer = materialDataBuffer.buffer;
-        resources.MaterialParamDataBufferOffset = materialI * sizeof(MaterialParameters);
+        int materialI = 0;
 
-        material->materialInstance = engine->MaterialBuilder.InstantiateMaterial(engine->_device, material->passType, resources, descriptorPool);
+        for (auto &material : materials)
+        {
+            mappedParamsPtr[materialI] = material->params;
 
-        materialI++;
+            StandardMaterial::Resources resources {};
+            resources.ColorImage = material->hasColorImage ? material->colorImage->allocatedImage : engine->_whiteImage;
+            resources.ColorSampler = material->hasColorImage ? material->colorSampler->vkSampler : engine->_defaultSamplerLinear;
+            resources.MetalRoughImage = engine->_whiteImage;
+            resources.MetalRoughSampler = engine->_defaultSamplerLinear;
+            resources.MaterialParamDataBuffer = materialDataBuffer.buffer;
+            resources.MaterialParamDataBufferOffset = materialI * sizeof(StandardMaterialParameters);
+
+            material->materialInstance = engine->StandardMaterial.InstantiateMaterial(engine->_device, material->passType, resources, descriptorPool);
+
+            materialI++;
+        }
+    }
+    else
+    {
+        materialDataBuffer = {};
+    }
+
+    if (retroMaterials.size() > 0)
+    {
+        retroMaterialDataBuffer = engine->create_buffer(sizeof(RetroMaterialParameters) * retroMaterials.size(), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+        auto mappedParamsPtr = (RetroMaterialParameters *)retroMaterialDataBuffer.info.pMappedData;
+
+        int materialI = 0;
+
+        for (auto &material : retroMaterials)
+        {
+            mappedParamsPtr[materialI] = material->params;
+
+            RetroMaterial::Resources resources {};
+            resources.DiffuseImage = material->hasDiffuseImage ? material->diffuseImage->allocatedImage : engine->_whiteImage;
+            resources.DiffuseSampler = material->hasDiffuseImage ? material->diffuseSampler->vkSampler : engine->_defaultSamplerLinear;
+            resources.MaterialParamDataBuffer = retroMaterialDataBuffer.buffer;
+            resources.MaterialParamDataBufferOffset = materialI * sizeof(RetroMaterialParameters);
+
+            material->materialInstance = engine->RetroMaterial.InstantiateMaterial(engine->_device, material->passType, resources, descriptorPool);
+
+            materialI++;
+        }
+    }
+    else
+    {
+        retroMaterialDataBuffer = {};
     }
 
     for (auto &mesh : meshes)
@@ -98,7 +132,8 @@ void Scene::_clearGPUData()
 {
     vkDeviceWaitIdle(engine->_device);
 
-    engine->destroy_buffer(materialDataBuffer);
+    if (materialDataBuffer.buffer != VK_NULL_HANDLE) engine->destroy_buffer(materialDataBuffer);
+    if (retroMaterialDataBuffer.buffer != VK_NULL_HANDLE) engine->destroy_buffer(retroMaterialDataBuffer);
 
     for (auto &mesh : meshes)
     {
@@ -139,16 +174,19 @@ void SceneNode::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
 
         for (auto &primitive : Mesh->primitives)
         {
+            assert(primitive.material == nullptr);
+            assert(primitive.retroMaterial != nullptr);
+
             RenderObject def;
             def.indexCount = primitive.indexCount;
             def.firstIndex = primitive.startIndex;
             def.indexBuffer = Mesh->meshBuffer.indexBuffer.buffer;
-            def.material = &primitive.material->materialInstance;
+            def.material = &primitive.retroMaterial->materialInstance;
             def.bounds = primitive.bounds;
             def.transform = nodeMatrix;
             def.vertexBufferAddress = Mesh->meshBuffer.vertexBufferAddress;
 
-            if (primitive.material->passType == MaterialPass::Transparent) {
+            if (primitive.retroMaterial->passType == MaterialPass::Transparent) {
                 ctx.transparentSurfaces.push_back(def);
             } else {
                 ctx.opaqueSurfaces.push_back(def);

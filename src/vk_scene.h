@@ -40,7 +40,19 @@ struct SceneMaterial
     bool hasColorImage;
     std::shared_ptr<SceneImage> colorImage;
     std::shared_ptr<SceneSampler> colorSampler;
-    MaterialParameters params;
+    StandardMaterialParameters params;
+    MaterialPass passType;
+
+    MaterialInstance materialInstance;
+};
+
+struct SceneRetroMaterial
+{
+    std::string name;
+    bool hasDiffuseImage;
+    std::shared_ptr<SceneImage> diffuseImage;
+    std::shared_ptr<SceneSampler> diffuseSampler;
+    RetroMaterialParameters params;
     MaterialPass passType;
 
     MaterialInstance materialInstance;
@@ -52,6 +64,7 @@ struct ScenePrimitive
     uint32_t indexCount;
     Bounds bounds;
     std::shared_ptr<SceneMaterial> material;
+    std::shared_ptr<SceneRetroMaterial> retroMaterial;
 };
 
 struct SceneMesh
@@ -123,11 +136,14 @@ struct Scene
     std::vector<std::shared_ptr<SceneMaterial>> materials;
     std::vector<std::shared_ptr<SceneNode>> topNodes;
 
+    std::vector<std::shared_ptr<SceneRetroMaterial>> retroMaterials;
+
     std::vector<std::shared_ptr<SceneLight>> lights;
 
     DescriptorAllocatorGrowable descriptorPool;
 
     AllocatedBuffer materialDataBuffer;
+    AllocatedBuffer retroMaterialDataBuffer;
 
     VulkanEngine *engine;
 

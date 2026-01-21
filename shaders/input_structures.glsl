@@ -3,25 +3,8 @@ layout (set = 0, binding = 0) uniform SceneData
 	mat4 view;
 	mat4 proj;
 	mat4 viewproj;
-	vec4 ambientColor;
-	vec4 sunlightDirection; // w for sun power
-	vec4 sunlightColor;
-	vec4 viewPos;
-	
-	//vec4 lightPos[8];
-	//vec4 lightColor[8];
-	//vec4 lightAmbient;
-	//vec4 lightDiffuse;
-	//vec4 lightSpecular;
-	
 	vec4 ambient;
-    vec4 diffuse;
-    vec4 specular;
-    float shininess;
-	    
-    int dirsUsed;
-    int pointsUsed;
-    int spotsUsed;
+	vec4 viewPos;
 
 } sceneData;
 

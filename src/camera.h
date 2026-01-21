@@ -13,6 +13,7 @@ public:
 
     glm::mat4 getViewMatrix();
     glm::mat4 getRotationMatrix();
+    glm::mat4 GetHorizontalRotationMatrix();
 
     glm::vec3 GetFront();
 

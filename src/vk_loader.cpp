@@ -281,16 +281,17 @@ std::optional<std::shared_ptr<Scene>> load_scene(VulkanEngine *engine, std::stri
         scene->images.push_back(newImage);
     }
 
+#if 0
     for (fastgltf::Material &material : gltf.materials)
     {
-        MaterialParameters material_params {};
-        material_params.colorFactors.r = material.pbrData.baseColorFactor[0];
-        material_params.colorFactors.g = material.pbrData.baseColorFactor[1];
-        material_params.colorFactors.b = material.pbrData.baseColorFactor[2];
-        material_params.colorFactors.a = material.pbrData.baseColorFactor[3];
+        StandardMaterialParameters materialParams {};
+        materialParams.colorFactors.r = material.pbrData.baseColorFactor[0];
+        materialParams.colorFactors.g = material.pbrData.baseColorFactor[1];
+        materialParams.colorFactors.b = material.pbrData.baseColorFactor[2];
+        materialParams.colorFactors.a = material.pbrData.baseColorFactor[3];
 
-        material_params.metal_rough_factors.r = material.pbrData.metallicFactor;
-        material_params.metal_rough_factors.g = material.pbrData.roughnessFactor;
+        materialParams.metal_rough_factors.r = material.pbrData.metallicFactor;
+        materialParams.metal_rough_factors.g = material.pbrData.roughnessFactor;
 
         auto newMaterial = std::make_shared<SceneMaterial>();
         newMaterial->name = material.name.c_str();
@@ -302,11 +303,41 @@ std::optional<std::shared_ptr<Scene>> load_scene(VulkanEngine *engine, std::stri
             newMaterial->colorImage = scene->images[imageI];
             newMaterial->colorSampler = scene->samplers[samplerI];
         }
-        newMaterial->params = material_params;
+        newMaterial->params = materialParams;
         newMaterial->passType = MaterialPass::MainColor; // TODO: How to determine transparent pass
 
         scene->materials.push_back(newMaterial);
     }
+#else
+    for (fastgltf::Material &material : gltf.materials)
+    {
+        RetroMaterialParameters materialParams {};
+        materialParams.diffuse.r = material.pbrData.baseColorFactor[0];
+        materialParams.diffuse.g = material.pbrData.baseColorFactor[1];
+        materialParams.diffuse.b = material.pbrData.baseColorFactor[2];
+        materialParams.diffuse.a = material.pbrData.baseColorFactor[3];
+
+        materialParams.specular.r = material.pbrData.baseColorFactor[0];
+        materialParams.specular.g = material.pbrData.baseColorFactor[1];
+        materialParams.specular.b = material.pbrData.baseColorFactor[2];
+        materialParams.specular.a = 32.0f; // shininess
+
+        auto newMaterial = std::make_shared<SceneRetroMaterial>();
+        newMaterial->name = material.name.c_str();
+        newMaterial->hasDiffuseImage = material.pbrData.baseColorTexture.has_value();
+        if (newMaterial->hasDiffuseImage)
+        {
+            size_t imageI = gltf.textures[material.pbrData.baseColorTexture.value().textureIndex].imageIndex.value();
+            size_t samplerI = gltf.textures[material.pbrData.baseColorTexture.value().textureIndex].samplerIndex.value();
+            newMaterial->diffuseImage = scene->images[imageI];
+            newMaterial->diffuseSampler = scene->samplers[samplerI];
+        }
+        newMaterial->params = materialParams;
+        newMaterial->passType = MaterialPass::MainColor; // TODO: How to determine transparent pass
+
+        scene->retroMaterials.push_back(newMaterial);
+    }
+#endif
 
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
@@ -394,11 +425,11 @@ std::optional<std::shared_ptr<Scene>> load_scene(VulkanEngine *engine, std::stri
 
             if (p.materialIndex.has_value())
             {
-                newPrimitive.material = scene->materials[p.materialIndex.value()];
+                newPrimitive.retroMaterial = scene->retroMaterials[p.materialIndex.value()];
             }
             else
             {
-                newPrimitive.material = scene->materials[0];
+                newPrimitive.retroMaterial = scene->retroMaterials[0];
             }
             newMesh->vertices = vertices;
             newMesh->indices = indices;
@@ -479,7 +510,7 @@ std::shared_ptr<SceneMesh> local_mesh_empty(std::string name)
     return mesh;
 }
 
-std::shared_ptr<SceneMesh> local_mesh_cube(std::string name, std::shared_ptr<SceneMaterial> material)
+std::shared_ptr<SceneMesh> local_mesh_cube(std::string name, std::shared_ptr<SceneRetroMaterial> retroMaterial, std::shared_ptr<SceneMaterial> material)
 {
     auto mesh = std::make_shared<SceneMesh>();
     mesh->name = name;
@@ -521,14 +552,15 @@ std::shared_ptr<SceneMesh> local_mesh_cube(std::string name, std::shared_ptr<Sce
     primitive.startIndex = 0;
     primitive.indexCount = mesh->indices.size();
     primitive.bounds = calculate_bounds(*mesh, primitive);
-    primitive.material = material;
+    if (material) primitive.material = material;
+    else primitive.retroMaterial = retroMaterial;
 
     mesh->primitives.push_back(primitive);
 
     return mesh;
 }
 
-std::shared_ptr<SceneMesh> local_mesh_cylinder(std::string name, std::shared_ptr<SceneMaterial> material)
+std::shared_ptr<SceneMesh> local_mesh_cylinder(std::string name, std::shared_ptr<SceneRetroMaterial> retroMaterial, std::shared_ptr<SceneMaterial> material)
 {
     auto mesh = std::make_shared<SceneMesh>();
     mesh->name = name;
@@ -627,7 +659,8 @@ std::shared_ptr<SceneMesh> local_mesh_cylinder(std::string name, std::shared_ptr
     primitive.startIndex = 0;
     primitive.indexCount = mesh->indices.size();
     primitive.bounds = calculate_bounds(*mesh, primitive);
-    primitive.material = material;
+    if (material) primitive.material = material;
+    else primitive.retroMaterial = retroMaterial;
 
     mesh->primitives.push_back(primitive);
 
@@ -644,29 +677,31 @@ std::shared_ptr<Scene> new_local_scene(VulkanEngine *engine, std::string name)
     {
         // material
         {
-            auto newMaterial = std::make_shared<SceneMaterial>();
+            auto newMaterial = std::make_shared<SceneRetroMaterial>();
             newMaterial->name = "BoxMaterial";
-            newMaterial->hasColorImage = false;
+            newMaterial->hasDiffuseImage = false;
 
-            MaterialParameters material_params {};
-            material_params.colorFactors.r = 1.0f;
-            material_params.colorFactors.g = 1.0f;
-            material_params.colorFactors.b = 1.0f;
-            material_params.colorFactors.a = 1.0f;
+            RetroMaterialParameters material_params {};
+            material_params.diffuse.r = 1.0f;
+            material_params.diffuse.g = 1.0f;
+            material_params.diffuse.b = 1.0f;
+            material_params.diffuse.a = 1.0f;
 
-            material_params.metal_rough_factors.r = 0.0f;
-            material_params.metal_rough_factors.g = 1.0f;
+            material_params.specular.r = 1.0f;
+            material_params.specular.g = 1.0f;
+            material_params.specular.b = 1.0f;
+            material_params.specular.a = 32.0f; // shininess
 
             newMaterial->params = material_params;
 
             newMaterial->passType = MaterialPass::MainColor;
 
-            scene->materials.push_back(newMaterial);
+            scene->retroMaterials.push_back(newMaterial);
         }
 
         // mesh
         {
-            auto mesh = local_mesh_cube("BoxMesh", scene->materials[0]);
+            auto mesh = local_mesh_cube("BoxMesh", scene->retroMaterials[0]);
             scene->meshes.push_back(mesh);
         }
 
