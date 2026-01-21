@@ -165,7 +165,8 @@ void SceneNode::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
         case SceneLight::Kind::Directional:
         {
             RenderLightDirectional directionalLight;
-            //directionalLight.direction = nodeMatrix[3];
+            directionalLight.direction = -nodeMatrix[2];
+            directionalLight.power = Light->Power;
             directionalLight.color = Light->Color;
             ctx.directionalLights.push_back(directionalLight);
         } break;
@@ -183,10 +184,11 @@ void SceneNode::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
             RenderLightSpot spotLight;
             spotLight.pos = nodeMatrix[3];
             spotLight.color = Light->Color;
+            spotLight.direction = -nodeMatrix[2];
             spotLight.attenuationLinear = Light->AttenuationLinear;
             spotLight.attenuationQuad = Light->AttenuationQuad;
-            spotLight.cutoff = Light->Cutoff;
-            spotLight.outerCutoff = Light->OuterCutoff;
+            spotLight.cutoff = glm::cos(glm::radians(Light->Cutoff));
+            spotLight.outerCutoff = glm::cos(glm::radians(Light->OuterCutoff));
             ctx.spotLights.push_back(spotLight);
         } break;
         }

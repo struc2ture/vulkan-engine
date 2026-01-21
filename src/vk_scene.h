@@ -77,10 +77,11 @@ struct SceneLight
 
     std::string Name;
     glm::vec4 Color;
-    float AttenuationLinear;
-    float AttenuationQuad;
-    float Cutoff;
-    float OuterCutoff;
+    float Power; // [0.0, 1.0] - Directional
+    float AttenuationLinear; // [0.0, ] - Point, Spotlight
+    float AttenuationQuad; // [0.0, ] - Point, Spotlight
+    float Cutoff; // degrees [0.0, 90.0] - Spotlight
+    float OuterCutoff; // degrees [0.0, 90.0] - Spotlight
 };
 
 struct DrawContext;

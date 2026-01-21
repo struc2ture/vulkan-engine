@@ -14,6 +14,8 @@ public:
     glm::mat4 getViewMatrix();
     glm::mat4 getRotationMatrix();
 
+    glm::vec3 GetFront();
+
     void processSDLEvent(SDL_Event& e);
     void update();
 };

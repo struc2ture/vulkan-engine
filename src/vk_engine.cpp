@@ -883,7 +883,7 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 
         for (auto &directionalLight : mainDrawContext.directionalLights)
         {
-            lightsData.dirDir[dirLightI] = directionalLight.direction;
+            lightsData.dirDir[dirLightI] = glm::vec4{directionalLight.direction, directionalLight.power};
             lightsData.dirColor[dirLightI] = directionalLight.color;
             dirLightI++;
         }
@@ -905,7 +905,7 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
             lightsData.spotPos[spotLightI] = spotLight.pos;
             lightsData.spotDir[spotLightI] = spotLight.direction;
             lightsData.spotColor[spotLightI] = spotLight.color;
-            lightsData.spotAttenCutoff[pointLightI] = glm::vec4 { spotLight.attenuationLinear, spotLight.attenuationQuad, spotLight.cutoff, spotLight.outerCutoff };
+            lightsData.spotAttenCutoff[spotLightI] = glm::vec4 { spotLight.attenuationLinear, spotLight.attenuationQuad, spotLight.cutoff, spotLight.outerCutoff };
             spotLightI++;
         }
         lightsData.spotsUsed = spotLightI;
@@ -1630,8 +1630,25 @@ void VulkanEngine::imgui_scene_inspector(std::shared_ptr<Scene> scene)
                 {
                     ImGui::Text("Kind: %s", light->Kind == SceneLight::Kind::Directional ? "Directional" : (light->Kind == SceneLight::Kind::Point ? "Point" : (light->Kind == SceneLight::Kind::Spotlight ? "Spotlight" : "Unknown")));
                     ImGui::ColorEdit3("Color", &light->Color.x);
-                    ImGui::DragFloat("Attenuation Linear", &light->AttenuationLinear, 0.01f);
-                    ImGui::DragFloat("Attenuation Quad", &light->AttenuationQuad, 0.01f);
+                    switch (light->Kind)
+                    {
+                    case SceneLight::Kind::Directional:
+                    {
+                        ImGui::DragFloat("Power", &light->Power, 0.01f, 0.0f, 1.0f);
+                    } break;
+                    case SceneLight::Kind::Point:
+                    {
+                        ImGui::DragFloat("Attenuation Linear", &light->AttenuationLinear, 0.001f);
+                        ImGui::DragFloat("Attenuation Quad", &light->AttenuationQuad, 0.001f);
+                    } break;
+                    case SceneLight::Kind::Spotlight:
+                    {
+                        ImGui::DragFloat("Attenuation Linear", &light->AttenuationLinear, 0.001f);
+                        ImGui::DragFloat("Attenuation Quad", &light->AttenuationQuad, 0.001f);
+                        ImGui::DragFloat("Cutoff", &light->Cutoff, 0.001f, 0.0f, 90.0f);
+                        ImGui::DragFloat("Outer Cutoff", &light->OuterCutoff, 0.001f, 0.0f, 90.0f);
+                    } break;
+                    }
                     ImGui::TreePop();
                 }
                 ImGui::PopID();
@@ -1810,33 +1827,109 @@ void VulkanEngine::imgui_scene_inspector(std::shared_ptr<Scene> scene)
             ImGui::TreePop();
         }
 
-        if (ImGui::Button("Add random light"))
+        if (ImGui::Button("Add directional light"))
+        {
+            auto newLight = std::make_shared<SceneLight>();
+            newLight->Kind = SceneLight::Kind::Directional;
+            newLight->Name = "Preset directional light";
+            newLight->Color = glm::vec4(1.0f);
+            newLight->Power = 1.0f;
+            scene->lights.push_back(newLight);
+
+            auto newNode = std::make_shared<SceneNode>();
+            newNode->Name = "Preset directional light node";
+            newNode->NodeId = (uint64_t)scene->nodes.size();
+            newNode->Light = newLight;
+
+            auto basis = glm::mat3 {1.0f};
+
+            glm::vec3 up = {0.0f, 1.0f, 0.0f};
+            glm::vec3 z_axis = -mainCamera.GetFront();
+            glm::vec3 x_axis = glm::normalize(glm::cross(up, z_axis));
+            glm::vec3 y_axis = glm::normalize(glm::cross(z_axis, x_axis));
+            basis[0] = x_axis;
+            basis[1] = y_axis;
+            basis[2] = z_axis;
+
+            newNode->LocalTransform = glm::mat4(basis);
+
+            scene->nodes.push_back(newNode);
+            scene->topNodes.push_back(newNode);
+            sceneDirty = true;
+        }
+
+        if (ImGui::Button("Add point light"))
         {
             auto cubeDebugMesh = local_mesh_cube("Light Debug Cube", scene->materials[0]);
             scene->meshes.push_back(cubeDebugMesh);
 
             auto newLight = std::make_shared<SceneLight>();
             newLight->Kind = SceneLight::Kind::Point;
+            newLight->Name = "Preset point light";
             newLight->Color = glm::vec4(1.0f);
             newLight->AttenuationLinear = 0.14f;
-            newLight->AttenuationQuad = 0.07f;;
-            newLight->Name = "Random light";
+            newLight->AttenuationQuad = 0.07f;
             scene->lights.push_back(newLight);
 
             auto newNode = std::make_shared<SceneNode>();
-            newNode->Name = "Random Light Node";
+            newNode->Name = "Preset point light node";
             newNode->NodeId = (uint64_t)scene->nodes.size();
             newNode->Light = newLight;
             newNode->Mesh = cubeDebugMesh;
 
             auto transform = glm::mat4 {1.0f};
             
-            glm::vec3 translation { rand_float() * 2.0f - 1.0f, rand_float() * 2.0f - 1.0f, rand_float() * 2.0f - 1.0f };
-            transform = glm::translate(transform, translation);
+            transform = glm::translate(transform, mainCamera.position);
             
             transform = glm::scale(transform, glm::vec3 { 0.05f, 0.05f, 0.05f });
 
             newNode->LocalTransform = transform;
+
+            scene->nodes.push_back(newNode);
+            scene->topNodes.push_back(newNode);
+            sceneDirty = true;
+        }
+
+        if (ImGui::Button("Add spotlight"))
+        {
+            auto cubeDebugMesh = local_mesh_cube("Light Debug Cube", scene->materials[0]);
+            scene->meshes.push_back(cubeDebugMesh);
+
+            auto newLight = std::make_shared<SceneLight>();
+            newLight->Kind = SceneLight::Kind::Spotlight;
+            newLight->Name = "Preset spotlight";
+            newLight->Color = glm::vec4(1.0f);
+            newLight->AttenuationLinear = 0.14f;
+            newLight->AttenuationQuad = 0.07f;
+            newLight->Cutoff = 5.0f;
+            newLight->OuterCutoff = 7.0f;
+            scene->lights.push_back(newLight);
+
+            auto newNode = std::make_shared<SceneNode>();
+            newNode->Name = "Preset spotlight node";
+            newNode->NodeId = (uint64_t)scene->nodes.size();
+            newNode->Light = newLight;
+            newNode->Mesh = cubeDebugMesh;
+
+            auto basis = glm::mat3 {1.0f};
+
+            glm::vec3 up = {0.0f, 1.0f, 0.0f};
+            glm::vec3 z_axis = -mainCamera.GetFront();
+            glm::vec3 x_axis = glm::normalize(glm::cross(up, z_axis));
+            glm::vec3 y_axis = glm::normalize(glm::cross(z_axis, x_axis));
+            basis[0] = x_axis;
+            basis[1] = y_axis;
+            basis[2] = z_axis;
+
+            glm::vec3 position = mainCamera.position;
+
+            newNode->LocalTransform = glm::mat4{ 1.0f };
+
+            newNode->LocalTransform = glm::translate(newNode->LocalTransform, position);
+
+            newNode->LocalTransform = newNode->LocalTransform * glm::mat4(basis);
+
+            newNode->LocalTransform = glm::scale(newNode->LocalTransform, glm::vec3 { 0.05f, 0.05f, 0.05f });
 
             scene->nodes.push_back(newNode);
             scene->topNodes.push_back(newNode);

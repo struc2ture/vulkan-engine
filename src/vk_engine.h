@@ -76,7 +76,8 @@ struct RenderObject
 
 struct RenderLightDirectional
 {
-	glm::vec4 direction;
+	glm::vec3 direction;
+	float power;
 	glm::vec4 color;
 };
 

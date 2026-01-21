@@ -23,7 +23,6 @@ void main()
 	vec3 albedo = inColor * texel.rgb;
 	vec3 norm = normalize(inNormal);
 	
-	
 	vec3 finalLight = vec3(0.0);
 	
 	// ambient

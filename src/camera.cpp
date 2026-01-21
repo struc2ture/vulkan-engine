@@ -28,8 +28,14 @@ void Camera::processSDLEvent(SDL_Event &e)
 
     if (e.type == SDL_MOUSEMOTION)
     {
-        yaw += (float)e.motion.xrel / 200.0f;
-        pitch -= (float)e.motion.yrel / 200.0f;
+        const float sens = 0.1f;
+
+        yaw += (float)e.motion.xrel * sens;
+        if (yaw >= 360.0f) yaw -= 360.0f;
+        if (yaw < 0.0f) yaw += 360.0f;
+        pitch -= (float)e.motion.yrel * sens;
+        if (pitch > 89.0f) pitch = 89.9f;
+        if (pitch < -89.0f) pitch = -89.0f;
     }
 }
 
@@ -42,8 +48,13 @@ glm::mat4 Camera::getViewMatrix()
 
 glm::mat4 Camera::getRotationMatrix()
 {
-    glm::quat pitchRotation = glm::angleAxis(pitch, glm::vec3 { 1.0f, 0.0f, 0.0f });
-    glm::quat yawRotation = glm::angleAxis(yaw, glm::vec3 { 0.0f, -1.0f, 0.0f });
-
+    glm::quat pitchRotation = glm::angleAxis(glm::radians(pitch), glm::vec3 { 1.0f, 0.0f, 0.0f });
+    glm::quat yawRotation = glm::angleAxis(glm::radians(yaw), glm::vec3 { 0.0f, -1.0f, 0.0f });
     return glm::toMat4(yawRotation) * glm::toMat4(pitchRotation);
+}
+
+glm::vec3 Camera::GetFront()
+{
+    glm::mat3 rotation = glm::mat3(getRotationMatrix());
+    return -rotation[2];
 }
