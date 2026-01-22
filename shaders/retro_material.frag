@@ -4,6 +4,7 @@ layout (location = 0) in vec3 inNormal;
 layout (location = 1) in vec3 inColor;
 layout (location = 2) in vec2 inUV;
 layout (location = 3) in vec3 inFragPos;
+layout (location = 4) in mat3 inTBN;
 
 layout (location = 0) out vec4 outFragColor;
 
@@ -49,26 +50,35 @@ layout (set = 1, binding = 0) uniform MaterialData
 } materialData;
 
 layout (set = 1, binding = 1) uniform sampler2D diffuseTex;
-//layout (set = 1, binding = 2) uniform sampler2D specularTex;
-//layout (set = 1, binding = 3) uniform sampler2D normalTex;
+layout (set = 1, binding = 2) uniform sampler2D specularTex;
+layout (set = 1, binding = 3) uniform sampler2D emissionTex;
+layout (set = 1, binding = 4) uniform sampler2D normalTex;
+layout (set = 1, binding = 5) uniform sampler2D parallaxTex;
 
 void main()
 {
-	vec4 texel =  texture(diffuseTex, inUV);
+	vec4 diffuseT =  texture(diffuseTex, inUV);
 	
 	// Alpha cut-out
-	if (texel.a < 0.1)
+	if (diffuseT.a < 0.1)
 	{
 		discard;
 	}
 	
-	vec3 albedo = inColor * texel.rgb;
+	vec3 diffuseTexel = inColor * diffuseT.rgb;
+	vec3 specularTexel =  texture(specularTex, inUV).rgb;
+	vec3 emissionTexel =  texture(emissionTex, inUV).rgb;
+	
 	vec3 norm = normalize(inNormal);
+	
+	norm = texture(normalTex, inUV).rgb;
+	norm = normalize(norm * 2.0 - 1.0);
+	norm = normalize(inTBN * norm);
 	
 	vec3 finalLight = vec3(0.0);
 	
 	// ambient
-	vec3 ambient = sceneData.ambient.rgb;
+	vec3 ambient = sceneData.ambient.rgb * diffuseTexel;
 	finalLight += ambient;
 	
 	// directional lights
@@ -83,7 +93,7 @@ void main()
 		// diffuse
 		float diff = max(dot(norm, lightDir), 0.0);
 		
-		finalLight += lightColor * lightPower * diff * materialData.diffuse.rgb;
+		finalLight += lightColor * lightPower * diff * materialData.diffuse.rgb * diffuseTexel;
 		
 		// specular
 		vec3 viewDir = normalize(sceneData.viewPos.xyz - inFragPos);
@@ -92,7 +102,7 @@ void main()
 		float shininess = materialData.specular.a;
 		float spec = pow(max(dot(norm, halfwayDir), 0.0), shininess);
 		
-		finalLight += lightColor * lightPower * spec * materialData.specular.rgb;
+		finalLight += lightColor * lightPower * spec * materialData.specular.rgb * specularTexel;
 	}
 	
 	// point lights
@@ -113,7 +123,7 @@ void main()
 		
 		float diff = max(dot(norm, lightDir), 0.0);
 		
-		finalLight += lightColor * diff * attenuation * materialData.diffuse.rgb;
+		finalLight += lightColor * diff * attenuation * materialData.diffuse.rgb * diffuseTexel;
 		
 		// specular
 		vec3 viewDir = normalize(sceneData.viewPos.xyz - inFragPos);
@@ -122,7 +132,7 @@ void main()
 		float shininess = materialData.specular.a;
 		float spec = pow(max(dot(norm, halfwayDir), 0.0), shininess);
 		
-		finalLight += lightColor * spec * attenuation * materialData.specular.rgb;
+		finalLight += lightColor * spec * attenuation * materialData.specular.rgb * specularTexel;
 	}
 	
 	// spotlights
@@ -149,7 +159,7 @@ void main()
 
 		// diffuse
 		float diff = max(dot(norm, lightDir), 0.0);
-		finalLight += lightColor * diff * intensity * attenuation * materialData.diffuse.rgb;
+		finalLight += lightColor * diff * intensity * attenuation * materialData.diffuse.rgb * diffuseTexel;
 		
 		// specular
 		vec3 viewDir = normalize(sceneData.viewPos.xyz - inFragPos);
@@ -157,10 +167,16 @@ void main()
 		vec3 halfwayDir = normalize(lightDir + viewDir);
 		float shininess = materialData.specular.a;
 		float spec = pow(max(dot(norm, halfwayDir), 0.0), shininess);
-		finalLight += lightColor * spec * intensity * attenuation * materialData.specular.rgb;
+		finalLight += lightColor * spec * intensity * attenuation * materialData.specular.rgb * specularTexel;
 	}
 	
-	vec3 finalColor = finalLight * albedo;
+	// emission
+	{
+		vec3 emission = texture(emissionTex, inUV).rgb;
+		finalLight += emission * 0.3;
+	}
+	
+	vec3 finalColor = finalLight;
 	
 	outFragColor = vec4(finalColor, 1.0);
 }

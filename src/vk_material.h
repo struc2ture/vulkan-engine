@@ -70,10 +70,14 @@ struct RetroMaterial
 	{
 		AllocatedImage DiffuseImage;
 		VkSampler DiffuseSampler;
-		//AllocatedImage SpecularImage;
-		//VkSampler SpecularSampler;
-		//AllocatedImage NormalImage;
-		//VkSampler NormalSampler;
+		AllocatedImage SpecularImage;
+		VkSampler SpecularSampler;
+		AllocatedImage EmissionImage;
+		VkSampler EmissionSampler;
+		AllocatedImage NormalImage;
+		VkSampler NormalSampler;
+		AllocatedImage ParallaxImage;
+		VkSampler ParallaxSampler;
 		VkBuffer MaterialParamDataBuffer;
 		uint32_t MaterialParamDataBufferOffset;
 	};

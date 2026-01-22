@@ -324,6 +324,7 @@ std::optional<std::shared_ptr<Scene>> load_scene(VulkanEngine *engine, std::stri
 
         auto newMaterial = std::make_shared<SceneRetroMaterial>();
         newMaterial->name = material.name.c_str();
+
         newMaterial->hasDiffuseImage = material.pbrData.baseColorTexture.has_value();
         if (newMaterial->hasDiffuseImage)
         {
@@ -332,6 +333,12 @@ std::optional<std::shared_ptr<Scene>> load_scene(VulkanEngine *engine, std::stri
             newMaterial->diffuseImage = scene->images[imageI];
             newMaterial->diffuseSampler = scene->samplers[samplerI];
         }
+
+        newMaterial->hasSpecularImage = false;
+        newMaterial->hasEmissionImage = false;
+        newMaterial->hasNormalImage = false;
+        newMaterial->hasParallaxImage = false;
+
         newMaterial->params = materialParams;
         newMaterial->passType = MaterialPass::MainColor; // TODO: How to determine transparent pass
 
@@ -376,12 +383,13 @@ std::optional<std::shared_ptr<Scene>> load_scene(VulkanEngine *engine, std::stri
 
                 fastgltf::iterateAccessorWithIndex<glm::vec3>(gltf, posAccessor,
                     [&](glm::vec3 v, size_t index) {
-                        Vertex newvtx;
+                        Vertex newvtx {};
                         newvtx.position = v;
-                        newvtx.normal = { 1, 0, 0 };
+                        //newvtx.normal = { 1, 0, 0 };
                         newvtx.color = glm::vec4 { 1.0f };
-                        newvtx.uv_x = 0;
-                        newvtx.uv_y = 0;
+                        //newvtx.uv_x = 0;
+                        //newvtx.uv_y = 0;
+                        //newvtx.tangent = { 1, 0, 0 };
                         vertices[initial_vtx + index] = newvtx;
                     });
             }
@@ -394,6 +402,18 @@ std::optional<std::shared_ptr<Scene>> load_scene(VulkanEngine *engine, std::stri
                     fastgltf::iterateAccessorWithIndex<glm::vec3>(gltf, gltf.accessors[(*normals).second],
                         [&](glm::vec3 v, size_t index) {
                             vertices[initial_vtx + index].normal = v;
+                        });
+                }
+            }
+
+            // load vertex tangent
+            {
+                auto tangent = p.findAttribute("TANGENT");
+                if (tangent != p.attributes.end())
+                {
+                    fastgltf::iterateAccessorWithIndex<glm::vec4>(gltf, gltf.accessors[(*tangent).second],
+                        [&](glm::vec4 v, size_t index) {
+                            vertices[initial_vtx + index].tangent = v;
                         });
                 }
             }
@@ -680,6 +700,10 @@ std::shared_ptr<Scene> new_local_scene(VulkanEngine *engine, std::string name)
             auto newMaterial = std::make_shared<SceneRetroMaterial>();
             newMaterial->name = "BoxMaterial";
             newMaterial->hasDiffuseImage = false;
+            newMaterial->hasSpecularImage = false;
+            newMaterial->hasEmissionImage = false;
+            newMaterial->hasNormalImage = false;
+            newMaterial->hasParallaxImage = false;
 
             RetroMaterialParameters material_params {};
             material_params.diffuse.r = 1.0f;

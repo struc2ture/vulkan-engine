@@ -49,9 +49,27 @@ struct SceneMaterial
 struct SceneRetroMaterial
 {
     std::string name;
+
     bool hasDiffuseImage;
     std::shared_ptr<SceneImage> diffuseImage;
     std::shared_ptr<SceneSampler> diffuseSampler;
+    
+    bool hasSpecularImage;
+    std::shared_ptr<SceneImage> specularImage;
+    std::shared_ptr<SceneSampler> specularSampler;
+
+    bool hasEmissionImage;
+    std::shared_ptr<SceneImage> emissionImage;
+    std::shared_ptr<SceneSampler> emissionSampler;
+    
+    bool hasNormalImage;
+    std::shared_ptr<SceneImage> normalImage;
+    std::shared_ptr<SceneSampler> normalSampler;
+
+    bool hasParallaxImage;
+    std::shared_ptr<SceneImage> parallaxImage;
+    std::shared_ptr<SceneSampler> parallaxSampler;
+    
     RetroMaterialParameters params;
     MaterialPass passType;
 

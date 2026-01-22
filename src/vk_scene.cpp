@@ -102,8 +102,22 @@ void Scene::SyncToGPU()
             mappedParamsPtr[materialI] = material->params;
 
             RetroMaterial::Resources resources {};
+
             resources.DiffuseImage = material->hasDiffuseImage ? material->diffuseImage->allocatedImage : engine->_whiteImage;
             resources.DiffuseSampler = material->hasDiffuseImage ? material->diffuseSampler->vkSampler : engine->_defaultSamplerLinear;
+            
+            resources.SpecularImage = material->hasSpecularImage ? material->specularImage->allocatedImage : engine->_whiteImage;
+            resources.SpecularSampler = material->hasSpecularImage ? material->specularSampler->vkSampler : engine->_defaultSamplerLinear;
+
+            resources.EmissionImage = material->hasEmissionImage ? material->emissionImage->allocatedImage : engine->_blackImage;
+            resources.EmissionSampler = material->hasEmissionImage ? material->emissionSampler->vkSampler : engine->_defaultSamplerLinear;
+            
+            resources.NormalImage = material->hasNormalImage ? material->normalImage->allocatedImage : engine->_defaultNormalImage;
+            resources.NormalSampler = material->hasNormalImage ? material->normalSampler->vkSampler : engine->_defaultSamplerLinear;
+
+            resources.ParallaxImage = material->hasParallaxImage ? material->parallaxImage->allocatedImage : engine->_blackImage;
+            resources.ParallaxSampler = material->hasParallaxImage ? material->parallaxSampler->vkSampler : engine->_defaultSamplerLinear;
+
             resources.MaterialParamDataBuffer = retroMaterialDataBuffer.buffer;
             resources.MaterialParamDataBufferOffset = materialI * sizeof(RetroMaterialParameters);
 

@@ -9,7 +9,7 @@
 void StandardMaterial::BuildPipelines(VulkanEngine *engine)
 {
     VkShaderModule meshFragShader;
-    if (!vkutil::load_shader_module("../../shaders/retro_material.frag.spv", engine->_device, &meshFragShader))
+    if (!vkutil::load_shader_module("../../shaders/mesh.frag.spv", engine->_device, &meshFragShader))
     {
         fmt::println("Error when building the mesh fragment shader module");
     }
@@ -129,8 +129,10 @@ void RetroMaterial::BuildPipelines(VulkanEngine *engine)
     DescriptorLayoutBuilder layoutBuilder;
     layoutBuilder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
     layoutBuilder.add_binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    //layoutBuilder.add_binding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    //layoutBuilder.add_binding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    layoutBuilder.add_binding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    layoutBuilder.add_binding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    layoutBuilder.add_binding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    layoutBuilder.add_binding(5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
     DescriptorLayout = layoutBuilder.build(engine->_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
 
@@ -203,8 +205,10 @@ MaterialInstance RetroMaterial::InstantiateMaterial(VkDevice device, MaterialPas
     Writer.clear();
     Writer.write_buffer(0, resources.MaterialParamDataBuffer, sizeof(RetroMaterialParameters), resources.MaterialParamDataBufferOffset, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
     Writer.write_image(1, resources.DiffuseImage.imageView, resources.DiffuseSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    //Writer.write_image(2, resources.SpecularImage.imageView, resources.SpecularSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    //Writer.write_image(3, resources.NormalImage.imageView, resources.NormalSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    Writer.write_image(2, resources.SpecularImage.imageView, resources.SpecularSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    Writer.write_image(3, resources.EmissionImage.imageView, resources.EmissionSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    Writer.write_image(4, resources.NormalImage.imageView, resources.NormalSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    Writer.write_image(5, resources.ParallaxImage.imageView, resources.ParallaxSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
     Writer.update_set(device, matData.materialSet);
 
     return matData;

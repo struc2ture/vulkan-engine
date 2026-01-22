@@ -194,6 +194,7 @@ public:
 	AllocatedImage _whiteImage;
 	AllocatedImage _blackImage;
 	AllocatedImage _greyImage;
+	AllocatedImage _defaultNormalImage;
 	AllocatedImage _errorCheckerboardImage;
 
 	VkSampler _defaultSamplerLinear;

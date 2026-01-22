@@ -339,6 +339,9 @@ void VulkanEngine::init_default_data()
         uint32_t black = glm::packUnorm4x8(glm::vec4(0, 0, 0, 1));
         _blackImage = create_image((void *)&black, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
 
+        uint32_t defaultNormal = glm::packUnorm4x8(glm::vec4(0.5, 0.5, 1, 1));
+        _defaultNormalImage = create_image((void *)&defaultNormal, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
+
         // checkerboard image
         uint32_t magenta = glm::packUnorm4x8(glm::vec4(1, 0, 1, 1));
         std::array<uint32_t, 16 * 16> pixels;
@@ -371,6 +374,7 @@ void VulkanEngine::init_default_data()
         destroy_image(_whiteImage);
         destroy_image(_greyImage);
         destroy_image(_blackImage);
+        destroy_image(_defaultNormalImage);
         destroy_image(_errorCheckerboardImage);
     });
 
@@ -383,7 +387,7 @@ void VulkanEngine::init_default_data()
 
     sceneData.ambient = glm::vec4(0.1f);
 
-    auto scene = load_scene(this, "../../assets/struct_quinoa/struct_quinoa.gltf");
+    auto scene = load_scene(this, "../../assets/struct_quinoa2/struct_quinoa.gltf");
     assert(scene.has_value());
     _localScenes.push_back(scene.value());
 }
@@ -1627,11 +1631,10 @@ void VulkanEngine::imgui_scene_inspector(std::shared_ptr<Scene> scene)
                     }
                     else
                     {
-                        //scene->images
                         if (scene->images.size() > 0 && scene->samplers.size() > 0)
                         {
                             static int selectedImage = 0;
-                            if (ImGui::BeginCombo("##colorImageCombo", scene->images[selectedImage]->name.c_str()))
+                            if (ImGui::BeginCombo("##diffuseImageCombo", scene->images[selectedImage]->name.c_str()))
                             {
                                 for (size_t imageI = 0; imageI < scene->images.size(); imageI++)
                                 {
@@ -1646,7 +1649,7 @@ void VulkanEngine::imgui_scene_inspector(std::shared_ptr<Scene> scene)
                             }
 
                             static int selectedSampler = 0;
-                            if (ImGui::BeginCombo("##colorSamplerCombo", scene->samplers[selectedSampler]->name.c_str()))
+                            if (ImGui::BeginCombo("##diffuseSamplerCombo", scene->samplers[selectedSampler]->name.c_str()))
                             {
                                 for (size_t samplerI = 0; samplerI < scene->samplers.size(); samplerI++)
                                 {
@@ -1660,7 +1663,7 @@ void VulkanEngine::imgui_scene_inspector(std::shared_ptr<Scene> scene)
                                 ImGui::EndCombo();
                             }
 
-                            if (ImGui::Button("Add Color Image"))
+                            if (ImGui::Button("Add Diffuse Image"))
                             {
                                 material->diffuseImage = scene->images[selectedImage];
                                 material->diffuseSampler = scene->samplers[selectedSampler];
@@ -1671,12 +1674,269 @@ void VulkanEngine::imgui_scene_inspector(std::shared_ptr<Scene> scene)
                         else
                         {
                             ImGui::BeginDisabled();
-                            ImGui::Button("Add Color Image");
+                            ImGui::Button("Add Diffuse Image");
                             ImGui::EndDisabled();
                             if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
                                 ImGui::SetTooltip("No image or sampler in the scene.");
                         }
                     }
+
+                    if (material->hasSpecularImage)
+                    {
+                        ImGui::Text("Specular image: %s", material->specularImage->name.c_str());
+                        ImGui::Text("Specular sampler: %p", material->specularSampler.get());
+                        if (ImGui::Button("Remove Specular Image"))
+                        {
+                            material->hasSpecularImage = false;
+                            material->specularImage.reset();
+                            material->specularSampler.reset();
+                            sceneDirty = true;
+                        }
+                    }
+                    else
+                    {
+                        if (scene->images.size() > 0 && scene->samplers.size() > 0)
+                        {
+                            static int selectedImage = 0;
+                            if (ImGui::BeginCombo("##specularImageCombo", scene->images[selectedImage]->name.c_str()))
+                            {
+                                for (size_t imageI = 0; imageI < scene->images.size(); imageI++)
+                                {
+                                    const bool isSelected = imageI == selectedImage;
+                                    if (ImGui::Selectable(scene->images[imageI]->name.c_str(), isSelected))
+                                        selectedImage = imageI;
+
+                                    if (isSelected)
+                                        ImGui::SetItemDefaultFocus();
+                                }
+                                ImGui::EndCombo();
+                            }
+
+                            static int selectedSampler = 0;
+                            if (ImGui::BeginCombo("##specularSamplerCombo", scene->samplers[selectedSampler]->name.c_str()))
+                            {
+                                for (size_t samplerI = 0; samplerI < scene->samplers.size(); samplerI++)
+                                {
+                                    const bool isSelected = samplerI == selectedSampler;
+                                    if (ImGui::Selectable(scene->samplers[samplerI]->name.c_str(), isSelected))
+                                        selectedSampler = samplerI;
+
+                                    if (isSelected)
+                                        ImGui::SetItemDefaultFocus();
+                                }
+                                ImGui::EndCombo();
+                            }
+
+                            if (ImGui::Button("Add Specular Image"))
+                            {
+                                material->specularImage = scene->images[selectedImage];
+                                material->specularSampler = scene->samplers[selectedSampler];
+                                material->hasSpecularImage = true;
+                                sceneDirty = true;
+                            }
+                        }
+                        else
+                        {
+                            ImGui::BeginDisabled();
+                            ImGui::Button("Add Specular Image");
+                            ImGui::EndDisabled();
+                            if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
+                                ImGui::SetTooltip("No image or sampler in the scene.");
+                        }
+                    }
+
+                    if (material->hasEmissionImage)
+                    {
+                        ImGui::Text("Emission image: %s", material->emissionImage->name.c_str());
+                        ImGui::Text("Emission sampler: %p", material->emissionSampler.get());
+                        if (ImGui::Button("Remove Emission Image"))
+                        {
+                            material->hasEmissionImage = false;
+                            material->emissionImage.reset();
+                            material->emissionSampler.reset();
+                            sceneDirty = true;
+                        }
+                    }
+                    else
+                    {
+                        if (scene->images.size() > 0 && scene->samplers.size() > 0)
+                        {
+                            static int selectedImage = 0;
+                            if (ImGui::BeginCombo("##emissionImageCombo", scene->images[selectedImage]->name.c_str()))
+                            {
+                                for (size_t imageI = 0; imageI < scene->images.size(); imageI++)
+                                {
+                                    const bool isSelected = imageI == selectedImage;
+                                    if (ImGui::Selectable(scene->images[imageI]->name.c_str(), isSelected))
+                                        selectedImage = imageI;
+
+                                    if (isSelected)
+                                        ImGui::SetItemDefaultFocus();
+                                }
+                                ImGui::EndCombo();
+                            }
+
+                            static int selectedSampler = 0;
+                            if (ImGui::BeginCombo("##emissionSamplerCombo", scene->samplers[selectedSampler]->name.c_str()))
+                            {
+                                for (size_t samplerI = 0; samplerI < scene->samplers.size(); samplerI++)
+                                {
+                                    const bool isSelected = samplerI == selectedSampler;
+                                    if (ImGui::Selectable(scene->samplers[samplerI]->name.c_str(), isSelected))
+                                        selectedSampler = samplerI;
+
+                                    if (isSelected)
+                                        ImGui::SetItemDefaultFocus();
+                                }
+                                ImGui::EndCombo();
+                            }
+
+                            if (ImGui::Button("Add Emission Image"))
+                            {
+                                material->emissionImage = scene->images[selectedImage];
+                                material->emissionSampler = scene->samplers[selectedSampler];
+                                material->hasEmissionImage = true;
+                                sceneDirty = true;
+                            }
+                        }
+                        else
+                        {
+                            ImGui::BeginDisabled();
+                            ImGui::Button("Add Emission Image");
+                            ImGui::EndDisabled();
+                            if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
+                                ImGui::SetTooltip("No image or sampler in the scene.");
+                        }
+                    }
+
+                    if (material->hasNormalImage)
+                    {
+                        ImGui::Text("Normal image: %s", material->normalImage->name.c_str());
+                        ImGui::Text("Normal sampler: %p", material->normalSampler.get());
+                        if (ImGui::Button("Remove Normal Image"))
+                        {
+                            material->hasNormalImage = false;
+                            material->normalImage.reset();
+                            material->normalSampler.reset();
+                            sceneDirty = true;
+                        }
+                    }
+                    else
+                    {
+                        if (scene->images.size() > 0 && scene->samplers.size() > 0)
+                        {
+                            static int selectedImage = 0;
+                            if (ImGui::BeginCombo("##normalImageCombo", scene->images[selectedImage]->name.c_str()))
+                            {
+                                for (size_t imageI = 0; imageI < scene->images.size(); imageI++)
+                                {
+                                    const bool isSelected = imageI == selectedImage;
+                                    if (ImGui::Selectable(scene->images[imageI]->name.c_str(), isSelected))
+                                        selectedImage = imageI;
+
+                                    if (isSelected)
+                                        ImGui::SetItemDefaultFocus();
+                                }
+                                ImGui::EndCombo();
+                            }
+
+                            static int selectedSampler = 0;
+                            if (ImGui::BeginCombo("##normalSamplerCombo", scene->samplers[selectedSampler]->name.c_str()))
+                            {
+                                for (size_t samplerI = 0; samplerI < scene->samplers.size(); samplerI++)
+                                {
+                                    const bool isSelected = samplerI == selectedSampler;
+                                    if (ImGui::Selectable(scene->samplers[samplerI]->name.c_str(), isSelected))
+                                        selectedSampler = samplerI;
+
+                                    if (isSelected)
+                                        ImGui::SetItemDefaultFocus();
+                                }
+                                ImGui::EndCombo();
+                            }
+
+                            if (ImGui::Button("Add Normal Image"))
+                            {
+                                material->normalImage = scene->images[selectedImage];
+                                material->normalSampler = scene->samplers[selectedSampler];
+                                material->hasNormalImage = true;
+                                sceneDirty = true;
+                            }
+                        }
+                        else
+                        {
+                            ImGui::BeginDisabled();
+                            ImGui::Button("Add Normal Image");
+                            ImGui::EndDisabled();
+                            if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
+                                ImGui::SetTooltip("No image or sampler in the scene.");
+                        }
+                    }
+
+                    if (material->hasParallaxImage)
+                    {
+                        ImGui::Text("Parallax image: %s", material->parallaxImage->name.c_str());
+                        ImGui::Text("Parallax sampler: %p", material->parallaxSampler.get());
+                        if (ImGui::Button("Remove Parallax Image"))
+                        {
+                            material->hasParallaxImage = false;
+                            material->parallaxImage.reset();
+                            material->parallaxSampler.reset();
+                            sceneDirty = true;
+                        }
+                    }
+                    else
+                    {
+                        if (scene->images.size() > 0 && scene->samplers.size() > 0)
+                        {
+                            static int selectedImage = 0;
+                            if (ImGui::BeginCombo("##parallaxImageCombo", scene->images[selectedImage]->name.c_str()))
+                            {
+                                for (size_t imageI = 0; imageI < scene->images.size(); imageI++)
+                                {
+                                    const bool isSelected = imageI == selectedImage;
+                                    if (ImGui::Selectable(scene->images[imageI]->name.c_str(), isSelected))
+                                        selectedImage = imageI;
+
+                                    if (isSelected)
+                                        ImGui::SetItemDefaultFocus();
+                                }
+                                ImGui::EndCombo();
+                            }
+
+                            static int selectedSampler = 0;
+                            if (ImGui::BeginCombo("##parallaxSamplerCombo", scene->samplers[selectedSampler]->name.c_str()))
+                            {
+                                for (size_t samplerI = 0; samplerI < scene->samplers.size(); samplerI++)
+                                {
+                                    const bool isSelected = samplerI == selectedSampler;
+                                    if (ImGui::Selectable(scene->samplers[samplerI]->name.c_str(), isSelected))
+                                        selectedSampler = samplerI;
+
+                                    if (isSelected)
+                                        ImGui::SetItemDefaultFocus();
+                                }
+                                ImGui::EndCombo();
+                            }
+
+                            if (ImGui::Button("Add Parallax Image"))
+                            {
+                                material->parallaxImage = scene->images[selectedImage];
+                                material->parallaxSampler = scene->samplers[selectedSampler];
+                                material->hasParallaxImage = true;
+                                sceneDirty = true;
+                            }
+                        }
+                        else
+                        {
+                            ImGui::BeginDisabled();
+                            ImGui::Button("Add Parallax Image");
+                            ImGui::EndDisabled();
+                            if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
+                                ImGui::SetTooltip("No image or sampler in the scene.");
+                        }
+                    }
+
                     if (ImGui::ColorEdit4("Diffuse", &material->params.diffuse.r)) sceneDirty = true;
                     if (ImGui::ColorEdit3("Specular", &material->params.specular.r)) sceneDirty = true;
                     if (ImGui::DragFloat("Specular Shininess", &material->params.specular.a, 0.01f)) sceneDirty = true;
