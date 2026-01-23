@@ -1226,6 +1226,10 @@ void VulkanEngine::run()
             {
                 mainCamera.processSDLEvent(e);
             }
+            else
+            {
+                mainCamera.processSDLEventConsoleMode(e);
+            }
 
             ImGui_ImplSDL2_ProcessEvent(&e);
         }

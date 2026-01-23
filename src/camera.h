@@ -20,5 +20,17 @@ public:
     glm::vec3 GetRight();
 
     void processSDLEvent(SDL_Event& e);
+    void processSDLEventConsoleMode(SDL_Event& e);
+    
     void update();
+
+private:
+    bool _orbitingMotion { false };
+    bool _panningMotion { false };
+    
+    float _accumDeltaX { 0.0f };
+    float _accumDeltaY { 0.0f };
+
+    glm::vec3 _orbitCenter{ 0.0f, 0.0f, 0.0f};
+    float _orbitDist{ 5.0f };
 };
