@@ -109,7 +109,7 @@ void Scene::SyncToGPU()
             resources.SpecularImage = material->hasSpecularImage ? material->specularImage->allocatedImage : engine->_whiteImage;
             resources.SpecularSampler = material->hasSpecularImage ? material->specularSampler->vkSampler : engine->_defaultSamplerLinear;
 
-            resources.EmissionImage = material->hasEmissionImage ? material->emissionImage->allocatedImage : engine->_blackImage;
+            resources.EmissionImage = material->hasEmissionImage ? material->emissionImage->allocatedImage : engine->_whiteImage;
             resources.EmissionSampler = material->hasEmissionImage ? material->emissionSampler->vkSampler : engine->_defaultSamplerLinear;
             
             resources.NormalImage = material->hasNormalImage ? material->normalImage->allocatedImage : engine->_defaultNormalImage;

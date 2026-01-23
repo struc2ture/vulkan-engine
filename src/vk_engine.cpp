@@ -388,7 +388,11 @@ void VulkanEngine::init_default_data()
 
     sceneData.ambient = glm::vec4(0.1f);
 
-    auto scene = load_scene(this, "../../assets/struct_quinoa2/struct_quinoa.gltf");
+    //auto scene = load_scene(this, "../../assets/struct_quinoa2/struct_quinoa.gltf");
+    //assert(scene.has_value());
+    //_localScenes.push_back(scene.value());
+
+    auto scene = load_scene(this, "../../assets/struc_cube/struc_cube.gltf");
     assert(scene.has_value());
     _localScenes.push_back(scene.value());
 
@@ -2039,6 +2043,7 @@ void VulkanEngine::imgui_scene_inspector(std::shared_ptr<Scene> scene)
                         }
                     }
 
+#if 0
                     if (material->hasParallaxImage)
                     {
                         ImGui::Text("Parallax image: %s", material->parallaxImage->name.c_str());
@@ -2102,10 +2107,12 @@ void VulkanEngine::imgui_scene_inspector(std::shared_ptr<Scene> scene)
                                 ImGui::SetTooltip("No image or sampler in the scene.");
                         }
                     }
+#endif
 
                     if (ImGui::ColorEdit4("Diffuse", &material->params.diffuse.r)) sceneDirty = true;
                     if (ImGui::ColorEdit3("Specular", &material->params.specular.r)) sceneDirty = true;
                     if (ImGui::DragFloat("Specular Shininess", &material->params.specular.a, 0.01f)) sceneDirty = true;
+                    if (ImGui::ColorEdit3("Emission", &material->params.emission.r)) sceneDirty = true;
                     ImGui::Text("Pass: %s", (material->passType == MaterialPass::MainColor) ? "Opaque" : "Transparent");
                     ImGui::TreePop();
                 }

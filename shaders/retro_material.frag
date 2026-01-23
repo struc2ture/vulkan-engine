@@ -45,7 +45,8 @@ layout (set = 0, binding = 1) uniform LightsData
 layout (set = 1, binding = 0) uniform MaterialData
 {
 	vec4 diffuse;
-	vec4 specular;
+	vec4 specular; // a - shininess
+	vec4 emission; // a - unused
 
 } materialData;
 
@@ -173,7 +174,7 @@ void main()
 	// emission
 	{
 		vec3 emission = texture(emissionTex, inUV).rgb;
-		finalLight += emission * 0.3;
+		finalLight += emission * materialData.emission.rgb;
 	}
 	
 	vec3 finalColor = finalLight;

@@ -223,7 +223,7 @@ std::optional<std::shared_ptr<Scene>> load_scene(VulkanEngine *engine, std::stri
 
     auto scene = std::make_shared<Scene>(filePath.data(), path.filename().generic_string(), engine);
 
-    fastgltf::Parser parser {};
+    fastgltf::Parser parser { fastgltf::Extensions::KHR_materials_specular | fastgltf::Extensions::KHR_lights_punctual };
 
     constexpr auto gltfOptions = fastgltf::Options::DontRequireValidAssetMember | fastgltf::Options::AllowDouble | fastgltf::Options::LoadGLBBuffers | fastgltf::Options::LoadExternalBuffers;
 
@@ -317,10 +317,24 @@ std::optional<std::shared_ptr<Scene>> load_scene(VulkanEngine *engine, std::stri
         materialParams.diffuse.b = material.pbrData.baseColorFactor[2];
         materialParams.diffuse.a = material.pbrData.baseColorFactor[3];
 
-        materialParams.specular.r = material.pbrData.baseColorFactor[0];
-        materialParams.specular.g = material.pbrData.baseColorFactor[1];
-        materialParams.specular.b = material.pbrData.baseColorFactor[2];
-        materialParams.specular.a = 32.0f; // shininess
+        if (material.specular != nullptr)
+        {
+            materialParams.specular.r = material.specular->specularColorFactor[0] * material.specular->specularFactor;
+            materialParams.specular.g = material.specular->specularColorFactor[1] * material.specular->specularFactor;
+            materialParams.specular.b = material.specular->specularColorFactor[2] * material.specular->specularFactor;
+            materialParams.specular.a = 32.0f; // shininess
+        }
+        else
+        {
+            materialParams.specular.r = 0.0f;
+            materialParams.specular.g = 0.0f;
+            materialParams.specular.b = 0.0f;
+            materialParams.specular.a = 32.0f; // shininess
+        }
+
+        materialParams.emission.r = material.emissiveFactor[0];
+        materialParams.emission.g = material.emissiveFactor[1];
+        materialParams.emission.b = material.emissiveFactor[2];
 
         auto newMaterial = std::make_shared<SceneRetroMaterial>();
         newMaterial->name = material.name.c_str();
@@ -334,9 +348,33 @@ std::optional<std::shared_ptr<Scene>> load_scene(VulkanEngine *engine, std::stri
             newMaterial->diffuseSampler = scene->samplers[samplerI];
         }
 
-        newMaterial->hasSpecularImage = false;
-        newMaterial->hasEmissionImage = false;
-        newMaterial->hasNormalImage = false;
+        newMaterial->hasSpecularImage = material.specular != nullptr && material.specular->specularColorTexture.has_value();
+        if (newMaterial->hasSpecularImage)
+        {
+            size_t imageI = gltf.textures[material.specular->specularColorTexture.value().textureIndex].imageIndex.value();
+            size_t samplerI = gltf.textures[material.specular->specularColorTexture.value().textureIndex].samplerIndex.value();
+            newMaterial->specularImage = scene->images[imageI];
+            newMaterial->specularSampler = scene->samplers[samplerI];
+        }
+
+        newMaterial->hasEmissionImage = material.emissiveTexture.has_value();
+        if (newMaterial->hasEmissionImage)
+        {
+            size_t imageI = gltf.textures[material.emissiveTexture.value().textureIndex].imageIndex.value();
+            size_t samplerI = gltf.textures[material.emissiveTexture.value().textureIndex].samplerIndex.value();
+            newMaterial->emissionImage = scene->images[imageI];
+            newMaterial->emissionSampler = scene->samplers[samplerI];
+        }
+
+        newMaterial->hasNormalImage = material.normalTexture.has_value();
+        if (newMaterial->hasNormalImage)
+        {
+            size_t imageI = gltf.textures[material.normalTexture.value().textureIndex].imageIndex.value();
+            size_t samplerI = gltf.textures[material.normalTexture.value().textureIndex].samplerIndex.value();
+            newMaterial->normalImage = scene->images[imageI];
+            newMaterial->normalSampler = scene->samplers[samplerI];
+        }
+
         newMaterial->hasParallaxImage = false;
 
         newMaterial->params = materialParams;
@@ -462,6 +500,20 @@ std::optional<std::shared_ptr<Scene>> load_scene(VulkanEngine *engine, std::stri
         scene->meshes.push_back(newMesh);
     }
 
+    for (fastgltf::Light &light : gltf.lights)
+    {
+        if (light.type == fastgltf::LightType::Directional)
+        {
+            auto newLight = std::make_shared<SceneLight>();
+
+            newLight->Kind = SceneLight::Kind::Directional;
+            newLight->Color = glm::vec4{light.color[0], light.color[1], light.color[2], 1.0f};
+            newLight->Power = light.intensity / 683.0f; // TODO: Do this right
+
+            scene->lights.push_back(newLight);
+        }
+    }
+
     uint64_t nodeId = 0;
     for (fastgltf::Node &node : gltf.nodes)
     {
@@ -471,6 +523,12 @@ std::optional<std::shared_ptr<Scene>> load_scene(VulkanEngine *engine, std::stri
         {
             newNode->Mesh = scene->meshes[node.meshIndex.value()];
         }
+
+        if (node.lightIndex.has_value())
+        {
+            newNode->Light = scene->lights[node.lightIndex.value()];
+        }
+
         newNode->NodeId = nodeId++;
         newNode->Name = node.name;
 
