@@ -100,6 +100,13 @@ struct RenderLightSpot
 	float outerCutoff;
 };
 
+struct RenderDebugObject
+{
+	glm::vec3 position;
+	glm::vec3 color;
+	glm::vec2 size;
+};
+
 struct DrawContext
 {
 	std::vector<RenderObject> opaqueSurfaces;
@@ -107,7 +114,9 @@ struct DrawContext
 
 	std::vector<RenderLightDirectional> directionalLights;
 	std::vector<RenderLightPoint> pointLights;
-	std::vector<RenderLightSpot> spotLights;
+	std::vector<RenderLightSpot> spotLights; 
+
+	std::vector<RenderDebugObject> debugObjects;
 };
 
 struct EngineStats
@@ -174,6 +183,12 @@ public:
 	VkPipeline _backgroundPipeline;
 	VkPipelineLayout _backgroundPipelineLayout;
 
+	VkPipeline _debugPipeline;
+	VkPipelineLayout _debugPipelineLayout;
+	VkDescriptorSetLayout _debugDescriptorSetLayout;
+
+	GPUMeshBuffers _debugMeshBuffer;
+
 	VkFence _immFence;
 	VkCommandBuffer _immCommandBuffer;
 	VkCommandPool _immCommandPool;
@@ -234,6 +249,7 @@ public:
 	void draw_background(VkCommandBuffer cmd);
 	void draw_imgui(VkCommandBuffer cmd, VkImageView targetImageView);
 	void draw_geometry(VkCommandBuffer cmd);
+	void draw_gizmos(VkCommandBuffer cmd);
 
 	void run();
 
@@ -261,8 +277,11 @@ private:
 
 	void init_pipelines();
 	void init_background_pipelines();
+	void init_debug_pipelines();
 
 	void init_default_data();
+
+	void init_debug_objects();
 
 	void init_imgui();
 

@@ -322,7 +322,8 @@ void VulkanEngine::init_descriptors()
 void VulkanEngine::init_pipelines()
 {
     init_background_pipelines();
-    StandardMaterial.BuildPipelines(this);
+    init_debug_pipelines();
+    //StandardMaterial.BuildPipelines(this);
     RetroMaterial.BuildPipelines(this);
 }
 
@@ -390,6 +391,30 @@ void VulkanEngine::init_default_data()
     auto scene = load_scene(this, "../../assets/struct_quinoa2/struct_quinoa.gltf");
     assert(scene.has_value());
     _localScenes.push_back(scene.value());
+
+    // Debug Objects
+    init_debug_objects();
+}
+
+void VulkanEngine::init_debug_objects()
+{
+    std::vector<Vertex> vertices;
+    std::vector<uint32_t> indices;
+
+    Vertex v = {};
+    v.position = glm::vec3 {-0.5f,  0.5f, 0.0f}; vertices.push_back(v);
+    v.position = glm::vec3 {-0.5f, -0.5f, 0.0f}; vertices.push_back(v);
+    v.position = glm::vec3 { 0.5f,  0.5f, 0.0f}; vertices.push_back(v);
+    v.position = glm::vec3 { 0.5f, -0.5f, 0.0f}; vertices.push_back(v);
+
+    indices.push_back(0);
+    indices.push_back(1);
+    indices.push_back(2);
+    indices.push_back(1);
+    indices.push_back(3);
+    indices.push_back(2);
+
+    _debugMeshBuffer = uploadMesh(indices, vertices);
 }
 
 void VulkanEngine::init_background_pipelines()
@@ -462,6 +487,67 @@ void VulkanEngine::init_background_pipelines()
         vkDestroyPipelineLayout(_device, _backgroundPipelineLayout, nullptr);
         vkDestroyPipeline(_device, skyEffect.pipeline, nullptr);
         vkDestroyPipeline(_device, gradientEffect.pipeline, nullptr);
+    });
+}
+
+void VulkanEngine::init_debug_pipelines()
+{
+    VkShaderModule vertShader;
+    std::string vertShaderFilename = "../../shaders/debug.vert.spv";
+    if (!vkutil::load_shader_module(vertShaderFilename.c_str(), _device, &vertShader))
+    {
+        fmt::println("init_debug_pipelines: Error when building shader: {}", vertShaderFilename);
+    }
+
+    VkShaderModule fragShader;
+    std::string fragShaderFilename = "../../shaders/debug.frag.spv";
+    if (!vkutil::load_shader_module(fragShaderFilename.c_str(), _device, &fragShader))
+    {
+        fmt::println("init_debug_pipelines: Error when building shader: {}", fragShaderFilename);
+    }
+
+    VkPushConstantRange gizmoPushConstantRange{};
+    gizmoPushConstantRange.offset = 0;
+    gizmoPushConstantRange.size = sizeof(GizmoPushConstants);
+    gizmoPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+    //DescriptorLayoutBuilder layoutBuilder;
+    //layoutBuilder.add_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+
+    //_debugDescriptorSetLayout = layoutBuilder.build(_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+
+    //VkDescriptorSetLayout layouts[] = { _sceneCommonDataDescriptorLayout, _debugDescriptorSetLayout };
+    VkDescriptorSetLayout layouts[] = { _sceneCommonDataDescriptorLayout };
+
+    VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = vkinit::pipeline_layout_create_info();
+    pipelineLayoutCreateInfo.setLayoutCount = 1; // 2;
+    pipelineLayoutCreateInfo.pSetLayouts = layouts;
+    pipelineLayoutCreateInfo.pPushConstantRanges = &gizmoPushConstantRange;
+    pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
+
+    VK_CHECK(vkCreatePipelineLayout(_device, &pipelineLayoutCreateInfo, nullptr, &_debugPipelineLayout));
+    
+    PipelineBuilder pipelineBuilder;
+    pipelineBuilder.set_shaders(vertShader, fragShader);
+    pipelineBuilder.set_input_topology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+    pipelineBuilder.set_polygon_mode(VK_POLYGON_MODE_FILL);
+    pipelineBuilder.set_cull_mode(VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
+    pipelineBuilder.set_multisampling_none();
+    pipelineBuilder.disable_blending();
+    pipelineBuilder.enable_depthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+    pipelineBuilder.set_color_attachment_format(_drawImage.imageFormat);
+    pipelineBuilder.set_depth_format(_depthImage.imageFormat);
+
+    pipelineBuilder._pipelineLayout = _debugPipelineLayout;
+
+    _debugPipeline = pipelineBuilder.build_pipeline(_device);
+
+    vkDestroyShaderModule(_device, vertShader, nullptr);
+    vkDestroyShaderModule(_device, fragShader, nullptr);
+
+    _mainDeletionQueue.push_function([=]() {
+        vkDestroyPipelineLayout(_device, _debugPipelineLayout, nullptr);
+        vkDestroyPipeline(_device, _debugPipeline, nullptr);
     });
 }
 
@@ -718,7 +804,10 @@ void VulkanEngine::cleanup()
 
         _localScenes.clear();
 
-        StandardMaterial.DestroyPipelines(_device);
+        destroy_buffer(_debugMeshBuffer.indexBuffer);
+        destroy_buffer(_debugMeshBuffer.vertexBuffer);
+
+        //StandardMaterial.DestroyPipelines(_device);
         RetroMaterial.DestroyPipelines(_device);
 
         for (int i = 0; i < FRAME_OVERLAP; i++)
@@ -784,6 +873,8 @@ void VulkanEngine::draw()
     vkutil::transition_image(cmd, _depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
     draw_geometry(cmd);
+
+    draw_gizmos(cmd);
 
     vkutil::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
@@ -1034,6 +1125,73 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
     stats.mesh_draw_time = elapsed.count() / 1000.0f;
 }
 
+void VulkanEngine::draw_gizmos(VkCommandBuffer cmd)
+{
+    // Scene Common Data (& lights) descriptor set (0)
+    VkDescriptorSet sceneCommonDataDescriptorSet = get_current_frame()._frameDescriptors.allocate(_device, _sceneCommonDataDescriptorLayout);
+    DescriptorWriter writer;
+    
+    // Scene common data (binding 0)
+    {
+        // TODO: Why is this recreated every frame?
+        AllocatedBuffer sceneCommonDataBuffer = create_buffer(sizeof(SceneCommonData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+        get_current_frame()._deletionQueue.push_function([=, this]() {
+            destroy_buffer(sceneCommonDataBuffer);
+            });
+
+        SceneCommonData *sceneUniformDataRemote = (SceneCommonData *)sceneCommonDataBuffer.allocation->GetMappedData();
+        *sceneUniformDataRemote = sceneData;
+
+        writer.write_buffer(0, sceneCommonDataBuffer.buffer, sizeof(SceneCommonData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+    }
+
+    writer.update_set(_device, sceneCommonDataDescriptorSet);
+
+    // begin rendering
+    VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(_drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo depthAttachment = vkinit::depth_attachment_info(_depthImage.imageView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+
+    VkRenderingInfo renderInfo = vkinit::rendering_info(_drawExtent, &colorAttachment, &depthAttachment);
+    vkCmdBeginRendering(cmd, &renderInfo);
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _debugPipeline);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _debugPipelineLayout, 0, 1, &sceneCommonDataDescriptorSet, 0, nullptr);
+
+    VkViewport viewport = {};
+    viewport.x = 0;
+    viewport.y = 0;
+    viewport.width = _drawExtent.width;
+    viewport.height = _drawExtent.height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+    VkRect2D scissor = {};
+    scissor.offset.x = 0;
+    scissor.offset.y = 0;
+    scissor.extent.width = _drawExtent.width;
+    scissor.extent.height = _drawExtent.height;
+
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+    vkCmdBindIndexBuffer(cmd, _debugMeshBuffer.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+
+    for (auto &debugObject : mainDrawContext.debugObjects)
+    {
+        GizmoPushConstants pushConstants;
+        pushConstants.billboardPos = glm::vec4(debugObject.position, 1.0f);
+        pushConstants.billboardSize = glm::vec4(debugObject.size, 0.0f, 0.0f);
+        pushConstants.billboardColor = glm::vec4(debugObject.color, 1.0f);
+        pushConstants.vertexBuffer = _debugMeshBuffer.vertexBufferAddress;
+        vkCmdPushConstants(cmd, _debugPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GizmoPushConstants), &pushConstants);
+
+        vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
+    }
+
+    vkCmdEndRendering(cmd);
+}
+
 void VulkanEngine::run()
 {
     SDL_Event e;
@@ -1117,6 +1275,7 @@ void VulkanEngine::update_scene()
     mainDrawContext.directionalLights.clear();
     mainDrawContext.pointLights.clear();
     mainDrawContext.spotLights.clear();
+    mainDrawContext.debugObjects.clear();
     
     for (auto &scene : _localScenes)
     {
@@ -1129,6 +1288,9 @@ void VulkanEngine::update_scene()
 
     sceneData.proj[1][1] *= -1;
     sceneData.viewproj = sceneData.proj * sceneData.view;
+
+    sceneData.cameraUp = glm::vec4(mainCamera.GetUp(), 0.0f);
+    sceneData.cameraRight = glm::vec4(mainCamera.GetRight(), 0.0f);
 
     auto end = std::chrono::system_clock::now();
 
@@ -2214,9 +2376,6 @@ void VulkanEngine::imgui_scene_inspector(std::shared_ptr<Scene> scene)
 
         if (ImGui::Button("Add point light"))
         {
-            auto cubeDebugMesh = local_mesh_cube("Light Debug Cube", scene->retroMaterials[0]);
-            scene->meshes.push_back(cubeDebugMesh);
-
             auto newLight = std::make_shared<SceneLight>();
             newLight->Kind = SceneLight::Kind::Point;
             newLight->Name = "Preset point light";
@@ -2229,7 +2388,6 @@ void VulkanEngine::imgui_scene_inspector(std::shared_ptr<Scene> scene)
             newNode->Name = "Preset point light node";
             newNode->NodeId = (uint64_t)scene->nodes.size();
             newNode->Light = newLight;
-            newNode->Mesh = cubeDebugMesh;
 
             auto transform = glm::mat4 {1.0f};
             
@@ -2246,9 +2404,6 @@ void VulkanEngine::imgui_scene_inspector(std::shared_ptr<Scene> scene)
 
         if (ImGui::Button("Add spotlight"))
         {
-            auto cubeDebugMesh = local_mesh_cube("Light Debug Cube", scene->retroMaterials[0]);
-            scene->meshes.push_back(cubeDebugMesh);
-
             auto newLight = std::make_shared<SceneLight>();
             newLight->Kind = SceneLight::Kind::Spotlight;
             newLight->Name = "Preset spotlight";
@@ -2263,7 +2418,6 @@ void VulkanEngine::imgui_scene_inspector(std::shared_ptr<Scene> scene)
             newNode->Name = "Preset spotlight node";
             newNode->NodeId = (uint64_t)scene->nodes.size();
             newNode->Light = newLight;
-            newNode->Mesh = cubeDebugMesh;
 
             auto basis = glm::mat3 {1.0f};
 

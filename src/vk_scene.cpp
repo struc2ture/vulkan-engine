@@ -212,6 +212,7 @@ void SceneNode::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
     {
         glm::mat4 nodeMatrix = topMatrix * WorldTransform;
 
+        glm::vec3 debugColor = glm::vec3(1.0f);
         switch (Light->Kind)
         {
         case SceneLight::Kind::Directional:
@@ -221,6 +222,8 @@ void SceneNode::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
             directionalLight.power = Light->Power;
             directionalLight.color = Light->Color;
             ctx.directionalLights.push_back(directionalLight);
+
+            debugColor = glm::vec3(0.0f, 1.0f, 0.0f);
         } break;
         case SceneLight::Kind::Point:
         {
@@ -230,6 +233,8 @@ void SceneNode::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
             pointLight.attenuationLinear = Light->AttenuationLinear;
             pointLight.attenuationQuad = Light->AttenuationQuad;
             ctx.pointLights.push_back(pointLight);
+
+            debugColor = glm::vec3(1.0f, 0.0f, 0.0f);
         } break;
         case SceneLight::Kind::Spotlight:
         {
@@ -242,8 +247,16 @@ void SceneNode::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
             spotLight.cutoff = glm::cos(glm::radians(Light->Cutoff));
             spotLight.outerCutoff = glm::cos(glm::radians(Light->OuterCutoff));
             ctx.spotLights.push_back(spotLight);
+
+            debugColor = glm::vec3(0.0f, 0.0f, 1.0f);
         } break;
         }
+
+        RenderDebugObject debugObject;
+        debugObject.position = nodeMatrix[3];
+        debugObject.color = debugColor;
+        debugObject.size = glm::vec2(0.1f, 0.1f);
+        ctx.debugObjects.push_back(debugObject);
     }
 
     for (auto &child : Children)

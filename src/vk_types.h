@@ -75,6 +75,14 @@ struct GeometryPushConstants
     VkDeviceAddress vertexBuffer;
 };
 
+struct GizmoPushConstants
+{
+    glm::vec4 billboardPos;
+    glm::vec4 billboardSize;
+    glm::vec4 billboardColor;
+    VkDeviceAddress vertexBuffer;
+};
+
 struct SceneCommonData
 {
     glm::mat4 view;
@@ -82,6 +90,8 @@ struct SceneCommonData
     glm::mat4 viewproj;
     glm::vec4 ambient;
     glm::vec4 viewPos;
+    glm::vec4 cameraRight;
+    glm::vec4 cameraUp;
 };
 
 #define MAX_LIGHTS 64

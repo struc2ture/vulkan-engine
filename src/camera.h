@@ -16,6 +16,8 @@ public:
     glm::mat4 GetHorizontalRotationMatrix();
 
     glm::vec3 GetFront();
+    glm::vec3 GetUp();
+    glm::vec3 GetRight();
 
     void processSDLEvent(SDL_Event& e);
     void update();

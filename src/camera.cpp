@@ -73,3 +73,16 @@ glm::vec3 Camera::GetFront()
     glm::mat3 rotation = glm::mat3(getRotationMatrix());
     return -rotation[2];
 }
+
+glm::vec3 Camera::GetUp()
+{
+    glm::mat3 rotation = glm::mat3(getRotationMatrix());
+    return rotation[1];
+}
+
+
+glm::vec3 Camera::GetRight()
+{
+    glm::mat3 rotation = glm::mat3(getRotationMatrix());
+    return rotation[0];
+}
