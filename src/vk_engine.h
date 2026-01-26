@@ -189,6 +189,8 @@ public:
 
 	GPUMeshBuffers _debugMeshBuffer;
 
+	SceneImage _debugLightIcon;
+
 	VkFence _immFence;
 	VkCommandBuffer _immCommandBuffer;
 	VkCommandPool _immCommandPool;

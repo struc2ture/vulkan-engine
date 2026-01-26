@@ -37,21 +37,25 @@ layout (set = 0, binding = 0) uniform SceneData
 	vec4 viewPos;
     vec4 cameraRight;
     vec4 cameraUp;
+	vec4 aspect;
 
 } sceneData;
 
 void main()
 {
     vec3 particleCenter = PushConstants.billboardPos.xyz;
-	Vertex v = PushConstants.vertexBuffer.vertices[gl_VertexIndex];
+	Vertex vert = PushConstants.vertexBuffer.vertices[gl_VertexIndex];
 	
-	vec3 position = particleCenter +
-        sceneData.cameraRight.xyz * v.position.x * PushConstants.billboardSize.x +
-        sceneData.cameraUp.xyz * v.position.y * PushConstants.billboardSize.y;
+	// vec3 position = particleCenter +
+    //     sceneData.cameraRight.xyz * vert.position.x * PushConstants.billboardSize.x +
+    //     sceneData.cameraUp.xyz * vert.position.y * PushConstants.billboardSize.y;
 	
-	gl_Position = sceneData.viewproj * vec4(position, 1.0);
+	gl_Position = sceneData.viewproj * vec4(particleCenter, 1.0);
+	gl_Position /= gl_Position.w;
 
-    outUV.x = v.uv_x;
-	outUV.y = v.uv_y;
+	gl_Position.xy += vert.position.xy * PushConstants.billboardSize.xy * vec2(1.0, sceneData.aspect.x);
+
+    outUV.x = vert.uv_x;
+	outUV.y = vert.uv_y;
     outColor = PushConstants.billboardColor.rgb;
 }

@@ -408,10 +408,10 @@ void VulkanEngine::init_debug_objects()
     std::vector<uint32_t> indices;
 
     Vertex v = {};
-    v.position = glm::vec3 {-0.5f,  0.5f, 0.0f}; vertices.push_back(v);
-    v.position = glm::vec3 {-0.5f, -0.5f, 0.0f}; vertices.push_back(v);
-    v.position = glm::vec3 { 0.5f,  0.5f, 0.0f}; vertices.push_back(v);
-    v.position = glm::vec3 { 0.5f, -0.5f, 0.0f}; vertices.push_back(v);
+    v.position = glm::vec3 {-0.5f,  0.5f, 0.0f}; v.uv_x = 0.0f, v.uv_y = 1.0f; vertices.push_back(v);
+    v.position = glm::vec3 {-0.5f, -0.5f, 0.0f}; v.uv_x = 0.0f, v.uv_y = 0.0f; vertices.push_back(v);
+    v.position = glm::vec3 { 0.5f,  0.5f, 0.0f}; v.uv_x = 1.0f, v.uv_y = 1.0f; vertices.push_back(v);
+    v.position = glm::vec3 { 0.5f, -0.5f, 0.0f}; v.uv_x = 1.0f, v.uv_y = 0.0f; vertices.push_back(v);
 
     indices.push_back(0);
     indices.push_back(1);
@@ -421,6 +421,18 @@ void VulkanEngine::init_debug_objects()
     indices.push_back(2);
 
     _debugMeshBuffer = uploadMesh(indices, vertices);
+
+    _debugLightIcon = load_image_data_from_file("../../assets/light_icon.png");
+    VkExtent3D imageExtent {};
+    imageExtent.width = _debugLightIcon.width;
+    imageExtent.height = _debugLightIcon.height;
+    imageExtent.depth = 1;
+    _debugLightIcon.allocatedImage = create_image(_debugLightIcon.data, imageExtent, _debugLightIcon.format, VK_IMAGE_USAGE_SAMPLED_BIT, false);
+
+    _mainDeletionQueue.push_function([&]() {
+        destroy_image(_debugLightIcon.allocatedImage);
+        free(_debugLightIcon.data);
+    });
 }
 
 void VulkanEngine::init_background_pipelines()
@@ -517,16 +529,16 @@ void VulkanEngine::init_debug_pipelines()
     gizmoPushConstantRange.size = sizeof(GizmoPushConstants);
     gizmoPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
-    //DescriptorLayoutBuilder layoutBuilder;
-    //layoutBuilder.add_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    DescriptorLayoutBuilder layoutBuilder;
+    layoutBuilder.add_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
-    //_debugDescriptorSetLayout = layoutBuilder.build(_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+    _debugDescriptorSetLayout = layoutBuilder.build(_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
 
-    //VkDescriptorSetLayout layouts[] = { _sceneCommonDataDescriptorLayout, _debugDescriptorSetLayout };
-    VkDescriptorSetLayout layouts[] = { _sceneCommonDataDescriptorLayout };
+    VkDescriptorSetLayout layouts[] = { _sceneCommonDataDescriptorLayout, _debugDescriptorSetLayout };
+    //VkDescriptorSetLayout layouts[] = { _sceneCommonDataDescriptorLayout };
 
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = vkinit::pipeline_layout_create_info();
-    pipelineLayoutCreateInfo.setLayoutCount = 1; // 2;
+    pipelineLayoutCreateInfo.setLayoutCount = 2;
     pipelineLayoutCreateInfo.pSetLayouts = layouts;
     pipelineLayoutCreateInfo.pPushConstantRanges = &gizmoPushConstantRange;
     pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
@@ -552,6 +564,7 @@ void VulkanEngine::init_debug_pipelines()
     vkDestroyShaderModule(_device, fragShader, nullptr);
 
     _mainDeletionQueue.push_function([=]() {
+        vkDestroyDescriptorSetLayout(_device, _debugDescriptorSetLayout, nullptr);
         vkDestroyPipelineLayout(_device, _debugPipelineLayout, nullptr);
         vkDestroyPipeline(_device, _debugPipeline, nullptr);
     });
@@ -1052,7 +1065,7 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 
     // begin rendering
     VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(_drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkRenderingAttachmentInfo depthAttachment = vkinit::depth_attachment_info(_depthImage.imageView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo depthAttachment = vkinit::depth_attachment_info(_depthImage.imageView, true, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
     VkRenderingInfo renderInfo = vkinit::rendering_info(_drawExtent, &colorAttachment, &depthAttachment);
     vkCmdBeginRendering(cmd, &renderInfo);
@@ -1150,18 +1163,25 @@ void VulkanEngine::draw_gizmos(VkCommandBuffer cmd)
 
         writer.write_buffer(0, sceneCommonDataBuffer.buffer, sizeof(SceneCommonData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
     }
-
     writer.update_set(_device, sceneCommonDataDescriptorSet);
+
+    VkDescriptorSet debugDescriptorSet = get_current_frame()._frameDescriptors.allocate(_device, _debugDescriptorSetLayout);
+    {
+        writer.clear();
+        writer.write_image(0, _debugLightIcon.allocatedImage.imageView, _defaultSamplerLinear, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    }
+    writer.update_set(_device, debugDescriptorSet);
 
     // begin rendering
     VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(_drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkRenderingAttachmentInfo depthAttachment = vkinit::depth_attachment_info(_depthImage.imageView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo depthAttachment = vkinit::depth_attachment_info(_depthImage.imageView, false, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
     VkRenderingInfo renderInfo = vkinit::rendering_info(_drawExtent, &colorAttachment, &depthAttachment);
     vkCmdBeginRendering(cmd, &renderInfo);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _debugPipeline);
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _debugPipelineLayout, 0, 1, &sceneCommonDataDescriptorSet, 0, nullptr);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _debugPipelineLayout, 1, 1, &debugDescriptorSet, 0, nullptr);
 
     VkViewport viewport = {};
     viewport.x = 0;
@@ -1301,6 +1321,7 @@ void VulkanEngine::update_scene()
 
     sceneData.cameraUp = glm::vec4(mainCamera.GetUp(), 0.0f);
     sceneData.cameraRight = glm::vec4(mainCamera.GetRight(), 0.0f);
+    sceneData.aspect = glm::vec4{(float)_windowExtent.width / (float)_windowExtent.height, 0.0f, 0.0f, 0.0f};
 
     auto end = std::chrono::system_clock::now();
 

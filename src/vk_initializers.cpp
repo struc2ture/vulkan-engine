@@ -143,7 +143,7 @@ VkRenderingAttachmentInfo vkinit::attachment_info(
 //< color_info
 //> depth_info
 VkRenderingAttachmentInfo vkinit::depth_attachment_info(
-    VkImageView view, VkImageLayout layout /*= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL*/)
+    VkImageView view, bool clear, VkImageLayout layout /*= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL*/)
 {
     VkRenderingAttachmentInfo depthAttachment {};
     depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
@@ -151,9 +151,9 @@ VkRenderingAttachmentInfo vkinit::depth_attachment_info(
 
     depthAttachment.imageView = view;
     depthAttachment.imageLayout = layout;
-    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.loadOp = clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
     depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    depthAttachment.clearValue.depthStencil.depth = 0.f;
+    if (clear) depthAttachment.clearValue.depthStencil.depth = 0.f;
 
     return depthAttachment;
 }

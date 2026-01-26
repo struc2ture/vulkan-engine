@@ -92,6 +92,7 @@ struct SceneCommonData
     glm::vec4 viewPos;
     glm::vec4 cameraRight;
     glm::vec4 cameraUp;
+    glm::vec4 aspect;
 };
 
 #define MAX_LIGHTS 64

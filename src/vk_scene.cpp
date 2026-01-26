@@ -255,7 +255,7 @@ void SceneNode::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
         RenderDebugObject debugObject;
         debugObject.position = nodeMatrix[3];
         debugObject.color = debugColor;
-        debugObject.size = glm::vec2(0.1f, 0.1f);
+        debugObject.size = glm::vec2(0.07f, 0.07f);
         ctx.debugObjects.push_back(debugObject);
     }
 
