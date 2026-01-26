@@ -39,4 +39,6 @@ private:
 
     glm::vec3 _orbitCenter{ 0.0f, 0.0f, 0.0f};
     float _orbitDist{ 5.0f };
+
+    void calculateOrbitPosition();
 };

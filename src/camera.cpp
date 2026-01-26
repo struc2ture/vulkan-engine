@@ -7,81 +7,24 @@
 
 void Camera::update()
 {
-    if (_panningMotion && _orbitingMotion)
+    if (_orbitingMotion)
     {
-        _orbitCenter -= _accumDeltaX * 0.08f * GetRight();
-        _orbitCenter -= _accumDeltaY * 0.08f * GetUp();
+        if (_panningMotion)
+        {
+            _orbitCenter -= _accumDeltaX * 0.08f * GetRight();
+            _orbitCenter -= _accumDeltaY * 0.08f * GetUp();
+        }
+        else if (_dollyMotion)
+        {
+            _orbitDist -= _accumDeltaY * 0.15f;
+        }
+        else
+        {
+            yaw   += _accumDeltaX * 2.0f;
+            pitch += _accumDeltaY * 2.0f;
+        }
 
-        float yawRad   = glm::radians(yaw);
-        float pitchRad = glm::radians(pitch);
-
-        glm::vec3 translation{};
-        translation.x = _orbitDist * cos(-pitchRad) * sin(-yawRad);
-        translation.y = _orbitDist * sin(-pitchRad);
-        translation.z = _orbitDist * cos(-pitchRad) * cos(-yawRad);
-
-        position = _orbitCenter + translation;
-
-        _accumDeltaX = 0.0f;
-        
-        _accumDeltaY = 0.0f;
-    }
-    else if (_dollyMotion && _orbitingMotion)
-    {
-        _orbitDist -= _accumDeltaY * 0.15f;
-
-        float yawRad   = glm::radians(yaw);
-        float pitchRad = glm::radians(pitch);
-
-        glm::vec3 translation{};
-        translation.x = _orbitDist * cos(-pitchRad) * sin(-yawRad);
-        translation.y = _orbitDist * sin(-pitchRad);
-        translation.z = _orbitDist * cos(-pitchRad) * cos(-yawRad);
-
-        position = _orbitCenter + translation;
-
-        _accumDeltaX = 0.0f;
-        _accumDeltaY = 0.0f;
-    }
-    else if (_orbitingMotion)
-    {
-        //fmt::println("Orbit: {} {}", _accumDeltaX, _accumDeltaY);
-
-        //glm::mat4 rot {1.0f};
-
-        //rot = glm::rotate(rot, -_accumDeltaY * 0.1f, glm::vec3{1.0f, 0.0f, 0.0f});
-        //rot = glm::rotate(rot, -_accumDeltaX * 0.1f, glm::vec3{0.0f, 1.0f, 0.0f});
-
-        //glm::vec4 p { position, 1.0f};
-
-        //p = rot * p;
-
-        //position = glm::vec3(p);
-
-        //glm::mat3 lookAt = glm::lookAt(position, glm::vec3 {0.0f, 0.0f, 0.0f}, glm::vec3 {0.0f, 1.0f, 0.0f});
-
-        //glm::vec3 forward = glm::normalize(glm::vec3(0.0f) - position);
-        //pitch = glm::degrees(std::asin(forward.y));
-        //yaw   = glm::degrees(std::atan2(forward.x, -forward.z));
-        //fmt::println("Yaw: {}; Pitch; {}", yaw, pitch);
-
-        //yaw -= glm::degrees(_accumDeltaX * 0.1f);
-        //pitch += glm::degrees(_accumDeltaY * 0.1f);
-
-        yaw   += _accumDeltaX * 2.0f;
-        pitch += _accumDeltaY * 2.0f;
-
-        pitch = glm::clamp(pitch, -89.0f, 89.0f);
-
-        float yawRad   = glm::radians(yaw);
-        float pitchRad = glm::radians(pitch);
-
-        glm::vec3 translation{};
-        translation.x = _orbitDist * cos(-pitchRad) * sin(-yawRad);
-        translation.y = _orbitDist * sin(-pitchRad);
-        translation.z = _orbitDist * cos(-pitchRad) * cos(-yawRad);
-
-        position = _orbitCenter + translation;
+        calculateOrbitPosition();
 
         _accumDeltaX = 0.0f;
         _accumDeltaY = 0.0f;
@@ -96,6 +39,21 @@ void Camera::update()
         position += glm::vec3(cameraRotation * glm::vec4(xzVelocity * movementSpeed, 0.0f));
         position += yVelocity * movementSpeed, 0.0f;
     }
+}
+
+void Camera::calculateOrbitPosition()
+{
+    pitch = glm::clamp(pitch, -89.0f, 89.0f);
+
+    float yawRad   = glm::radians(yaw);
+    float pitchRad = glm::radians(pitch);
+
+    glm::vec3 translation{};
+    translation.x = _orbitDist * cos(-pitchRad) * sin(-yawRad);
+    translation.y = _orbitDist * sin(-pitchRad);
+    translation.z = _orbitDist * cos(-pitchRad) * cos(-yawRad);
+
+    position = _orbitCenter + translation;
 }
 
 void Camera::processSDLEvent(SDL_Event &e)
