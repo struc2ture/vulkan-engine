@@ -119,3 +119,13 @@ struct LightsData
     int spotsUsed;
 };
 
+#define MAX_DEBUG_LINES 64
+
+struct DebugLineData
+{
+    glm::vec4 start[MAX_DEBUG_LINES];
+    glm::vec4 end[MAX_DEBUG_LINES];
+    glm::vec4 startColor[MAX_DEBUG_LINES];
+    glm::vec4 endColor[MAX_DEBUG_LINES];
+    float thickness[MAX_DEBUG_LINES];
+};

@@ -107,6 +107,15 @@ struct RenderDebugObject
 	glm::vec2 size;
 };
 
+struct RenderDebugLine
+{
+	glm::vec3 start;
+	glm::vec3 end;
+	glm::vec3 startColor;
+	glm::vec3 endColor;
+	float thickness;
+};
+
 struct DrawContext
 {
 	std::vector<RenderObject> opaqueSurfaces;
@@ -117,6 +126,7 @@ struct DrawContext
 	std::vector<RenderLightSpot> spotLights; 
 
 	std::vector<RenderDebugObject> debugObjects;
+	std::vector<RenderDebugLine> debugLines;
 };
 
 struct EngineStats
@@ -191,6 +201,10 @@ public:
 
 	SceneImage _debugLightIcon;
 
+	VkPipeline _debugLinePipeline;
+	VkPipelineLayout _debugLinePipelineLayout;
+	VkDescriptorSetLayout _debugLineDescriptorSetLayout;
+
 	VkFence _immFence;
 	VkCommandBuffer _immCommandBuffer;
 	VkCommandPool _immCommandPool;
@@ -252,6 +266,7 @@ public:
 	void draw_imgui(VkCommandBuffer cmd, VkImageView targetImageView);
 	void draw_geometry(VkCommandBuffer cmd);
 	void draw_gizmos(VkCommandBuffer cmd);
+	void draw_debug_lines(VkCommandBuffer cmd);
 
 	void run();
 
@@ -280,6 +295,7 @@ private:
 	void init_pipelines();
 	void init_background_pipelines();
 	void init_debug_pipelines();
+	void init_debug_line_pipelines();
 
 	void init_default_data();
 

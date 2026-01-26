@@ -323,6 +323,7 @@ void VulkanEngine::init_pipelines()
 {
     init_background_pipelines();
     init_debug_pipelines();
+    init_debug_line_pipelines();
     //StandardMaterial.BuildPipelines(this);
     RetroMaterial.BuildPipelines(this);
 }
@@ -568,6 +569,61 @@ void VulkanEngine::init_debug_pipelines()
         vkDestroyPipelineLayout(_device, _debugPipelineLayout, nullptr);
         vkDestroyPipeline(_device, _debugPipeline, nullptr);
     });
+}
+
+void VulkanEngine::init_debug_line_pipelines()
+{
+    VkShaderModule vertShader;
+    std::string vertShaderFilename = "../../shaders/debug_line.vert.spv";
+    if (!vkutil::load_shader_module(vertShaderFilename.c_str(), _device, &vertShader))
+    {
+        fmt::println("init_debug_line_pipelines: Error when building shader: {}", vertShaderFilename);
+    }
+
+    VkShaderModule fragShader;
+    std::string fragShaderFilename = "../../shaders/debug_line.frag.spv";
+    if (!vkutil::load_shader_module(fragShaderFilename.c_str(), _device, &fragShader))
+    {
+        fmt::println("init_debug_line_pipelines: Error when building shader: {}", fragShaderFilename);
+    }
+
+    DescriptorLayoutBuilder layoutBuilder;
+    layoutBuilder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+
+    _debugLineDescriptorSetLayout = layoutBuilder.build(_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+
+    VkDescriptorSetLayout layouts[] = { _sceneCommonDataDescriptorLayout, _debugLineDescriptorSetLayout };
+    //VkDescriptorSetLayout layouts[] = { _sceneCommonDataDescriptorLayout };
+
+    VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = vkinit::pipeline_layout_create_info();
+    pipelineLayoutCreateInfo.setLayoutCount = 2;
+    pipelineLayoutCreateInfo.pSetLayouts = layouts;
+
+    VK_CHECK(vkCreatePipelineLayout(_device, &pipelineLayoutCreateInfo, nullptr, &_debugLinePipelineLayout));
+
+    PipelineBuilder pipelineBuilder;
+    pipelineBuilder.set_shaders(vertShader, fragShader);
+    pipelineBuilder.set_input_topology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+    pipelineBuilder.set_polygon_mode(VK_POLYGON_MODE_FILL);
+    pipelineBuilder.set_cull_mode(VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
+    pipelineBuilder.set_multisampling_none();
+    pipelineBuilder.disable_blending();
+    pipelineBuilder.enable_depthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+    pipelineBuilder.set_color_attachment_format(_drawImage.imageFormat);
+    pipelineBuilder.set_depth_format(_depthImage.imageFormat);
+
+    pipelineBuilder._pipelineLayout = _debugLinePipelineLayout;
+
+    _debugLinePipeline = pipelineBuilder.build_pipeline(_device);
+
+    vkDestroyShaderModule(_device, vertShader, nullptr);
+    vkDestroyShaderModule(_device, fragShader, nullptr);
+
+    _mainDeletionQueue.push_function([=]() {
+        vkDestroyDescriptorSetLayout(_device, _debugLineDescriptorSetLayout, nullptr);
+        vkDestroyPipelineLayout(_device, _debugLinePipelineLayout, nullptr);
+        vkDestroyPipeline(_device, _debugLinePipeline, nullptr);
+        });
 }
 
 void VulkanEngine::init_imgui()
@@ -895,6 +951,8 @@ void VulkanEngine::draw()
 
     draw_gizmos(cmd);
 
+    draw_debug_lines(cmd);
+
     vkutil::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
     // copy draw image to swapchain image
@@ -1146,7 +1204,7 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 
 void VulkanEngine::draw_gizmos(VkCommandBuffer cmd)
 {
-    // Scene Common Data (& lights) descriptor set (0)
+    // Scene Common Data descriptor set (0)
     VkDescriptorSet sceneCommonDataDescriptorSet = get_current_frame()._frameDescriptors.allocate(_device, _sceneCommonDataDescriptorLayout);
     DescriptorWriter writer;
     
@@ -1214,6 +1272,90 @@ void VulkanEngine::draw_gizmos(VkCommandBuffer cmd)
 
         vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
     }
+
+    vkCmdEndRendering(cmd);
+}
+
+void VulkanEngine::draw_debug_lines(VkCommandBuffer cmd)
+{
+    // Scene Common Data descriptor set (0)
+    VkDescriptorSet sceneCommonDataDescriptorSet = get_current_frame()._frameDescriptors.allocate(_device, _sceneCommonDataDescriptorLayout);
+    DescriptorWriter writer;
+
+    // Scene common data (binding 0)
+    {
+        // TODO: Why is this recreated every frame?
+        AllocatedBuffer sceneCommonDataBuffer = create_buffer(sizeof(SceneCommonData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+        get_current_frame()._deletionQueue.push_function([=, this]() {
+            destroy_buffer(sceneCommonDataBuffer);
+            });
+
+        SceneCommonData *sceneUniformDataRemote = (SceneCommonData *)sceneCommonDataBuffer.allocation->GetMappedData();
+        *sceneUniformDataRemote = sceneData;
+
+        writer.write_buffer(0, sceneCommonDataBuffer.buffer, sizeof(SceneCommonData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+    }
+    writer.update_set(_device, sceneCommonDataDescriptorSet);
+
+    VkDescriptorSet debugLineDescriptorSet = get_current_frame()._frameDescriptors.allocate(_device, _debugLineDescriptorSetLayout);
+    {
+        writer.clear();
+        // TODO: Why is this recreated every frame?
+        AllocatedBuffer dataGpuBuffer = create_buffer(sizeof(DebugLineData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+        get_current_frame()._deletionQueue.push_function([=, this]() {
+            destroy_buffer(dataGpuBuffer);
+        });
+
+        DebugLineData data {};
+
+        int lineI = 0;
+        for (auto &render_debug_line : mainDrawContext.debugLines)
+        {
+            data.start[lineI] = glm::vec4(render_debug_line.start, 1.0f);
+            data.end[lineI] = glm::vec4(render_debug_line.end, 1.0f);
+            data.startColor[lineI] = glm::vec4(render_debug_line.startColor, 1.0f);
+            data.endColor[lineI] = glm::vec4(render_debug_line.endColor, 1.0f);
+            data.thickness[lineI] = render_debug_line.thickness;
+            lineI++;
+        }
+
+        DebugLineData *dataRemote = (DebugLineData *)dataGpuBuffer.allocation->GetMappedData();
+        *dataRemote = data;
+
+        writer.write_buffer(0, dataGpuBuffer.buffer, sizeof(DebugLineData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+    }
+    writer.update_set(_device, debugLineDescriptorSet);
+
+    // begin rendering
+    VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(_drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo depthAttachment = vkinit::depth_attachment_info(_depthImage.imageView, false, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+
+    VkRenderingInfo renderInfo = vkinit::rendering_info(_drawExtent, &colorAttachment, &depthAttachment);
+    vkCmdBeginRendering(cmd, &renderInfo);
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _debugLinePipeline);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _debugLinePipelineLayout, 0, 1, &sceneCommonDataDescriptorSet, 0, nullptr);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _debugLinePipelineLayout, 1, 1, &debugLineDescriptorSet, 0, nullptr);
+
+    VkViewport viewport = {};
+    viewport.x = 0;
+    viewport.y = 0;
+    viewport.width = _drawExtent.width;
+    viewport.height = _drawExtent.height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+    VkRect2D scissor = {};
+    scissor.offset.x = 0;
+    scissor.offset.y = 0;
+    scissor.extent.width = _drawExtent.width;
+    scissor.extent.height = _drawExtent.height;
+
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+    
+    vkCmdDraw(cmd, 6 * mainDrawContext.debugLines.size(), 1, 0, 0);
 
     vkCmdEndRendering(cmd);
 }
@@ -1306,6 +1448,7 @@ void VulkanEngine::update_scene()
     mainDrawContext.pointLights.clear();
     mainDrawContext.spotLights.clear();
     mainDrawContext.debugObjects.clear();
+    mainDrawContext.debugLines.clear();
     
     for (auto &scene : _localScenes)
     {

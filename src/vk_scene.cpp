@@ -248,6 +248,14 @@ void SceneNode::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
             spotLight.outerCutoff = glm::cos(glm::radians(Light->OuterCutoff));
             ctx.spotLights.push_back(spotLight);
 
+            RenderDebugLine spotLightDirLine {};
+            spotLightDirLine.start = glm::vec3(spotLight.pos);
+            spotLightDirLine.end = spotLightDirLine.start + 3.0f * glm::vec3(spotLight.direction);
+            spotLightDirLine.startColor = glm::vec3(0.0f, 1.0f, 0.0f);
+            spotLightDirLine.endColor = glm::vec3(0.0f, 1.0f, 0.0f);
+            spotLightDirLine.thickness = 2.0f;
+            ctx.debugLines.push_back(spotLightDirLine);
+
             debugColor = glm::vec3(0.0f, 0.0f, 1.0f);
         } break;
         }
@@ -267,6 +275,31 @@ void SceneNode::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
 
 void Scene::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
 {
+    RenderDebugLine originLineX {};
+    originLineX.start = glm::vec3(0.0f);
+    originLineX.end = originLineX.start + 3.0f * glm::vec3(1.0f, 0.0f, 0.0f);
+    originLineX.startColor = glm::vec3(1.0f, 0.0f, 0.0f);
+    originLineX.endColor = glm::vec3(1.0f, 0.0f, 0.0f);
+    originLineX.thickness = 2.0f;
+    ctx.debugLines.push_back(originLineX);
+
+    RenderDebugLine originLineY {};
+    originLineY.start = glm::vec3(0.0f);
+    originLineY.end = originLineY.start + 3.0f * glm::vec3(0.0f, 1.0f, 0.0f);
+    originLineY.startColor = glm::vec3(0.0f, 1.0f, 0.0f);
+    originLineY.endColor = glm::vec3(0.0f, 1.0f, 0.0f);
+    originLineY.thickness = 2.0f;
+    ctx.debugLines.push_back(originLineY);
+
+    RenderDebugLine originLineZ {};
+    originLineZ.start = glm::vec3(0.0f);
+    originLineZ.end = originLineZ.start + 3.0f * glm::vec3(0.0f, 0.0f, 1.0f);
+    originLineZ.startColor = glm::vec3(0.0f, 0.0f, 1.0f);
+    originLineZ.endColor = glm::vec3(0.0f, 0.0f, 1.0f);
+    originLineZ.thickness = 2.0f;
+    ctx.debugLines.push_back(originLineZ);
+
+
     for (auto &node : topNodes)
     {
         node->Draw(topMatrix, ctx);
