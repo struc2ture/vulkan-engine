@@ -386,6 +386,8 @@ void VulkanEngine::init_default_data()
     mainCamera.pitch = 0;
     mainCamera.yaw = 0;
 
+    mainCamera.SdlWindow = _window;
+
     sceneData.ambient = glm::vec4(0.1f);
 
     //auto scene = load_scene(this, "../../assets/struct_quinoa2/struct_quinoa.gltf");

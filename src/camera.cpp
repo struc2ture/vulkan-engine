@@ -23,6 +23,24 @@ void Camera::update()
         position = _orbitCenter + translation;
 
         _accumDeltaX = 0.0f;
+        
+        _accumDeltaY = 0.0f;
+    }
+    else if (_dollyMotion && _orbitingMotion)
+    {
+        _orbitDist -= _accumDeltaY * 0.15f;
+
+        float yawRad   = glm::radians(yaw);
+        float pitchRad = glm::radians(pitch);
+
+        glm::vec3 translation{};
+        translation.x = _orbitDist * cos(-pitchRad) * sin(-yawRad);
+        translation.y = _orbitDist * sin(-pitchRad);
+        translation.z = _orbitDist * cos(-pitchRad) * cos(-yawRad);
+
+        position = _orbitCenter + translation;
+
+        _accumDeltaX = 0.0f;
         _accumDeltaY = 0.0f;
     }
     else if (_orbitingMotion)
@@ -125,6 +143,8 @@ void Camera::processSDLEventConsoleMode(SDL_Event &e)
             _orbitCenter = position + GetFront() * _orbitDist;
             _accumDeltaX = 0.0f;
             _accumDeltaY = 0.0f;
+            //SDL_SetRelativeMouseMode((SDL_bool)true);
+            //SDL_GetMouseState(&_prevMouseX, &_prevMouseY);
         }
     }
     else if (e.type == SDL_MOUSEBUTTONUP)
@@ -132,23 +152,8 @@ void Camera::processSDLEventConsoleMode(SDL_Event &e)
         if (e.button.button == 2)
         {
             _orbitingMotion = false;
+            //SDL_SetRelativeMouseMode((SDL_bool)false);
         }
-    }
-
-    if (e.type == SDL_MOUSEWHEEL)
-    {
-        _orbitDist -= e.wheel.y * 0.5f;
-
-        float yawRad   = glm::radians(yaw);
-        float pitchRad = glm::radians(pitch);
-
-        glm::vec3 translation{};
-        translation.x = _orbitDist * cos(-pitchRad) * sin(-yawRad);
-        translation.y = _orbitDist * sin(-pitchRad);
-        translation.z = _orbitDist * cos(-pitchRad) * cos(-yawRad);
-
-        position = _orbitCenter + translation;
-
     }
 
     if (e.type == SDL_KEYDOWN)
@@ -168,6 +173,22 @@ void Camera::processSDLEventConsoleMode(SDL_Event &e)
         }
     }
 
+    if (e.type == SDL_KEYDOWN)
+    {
+        if (e.key.keysym.sym == SDLK_LCTRL)
+        {
+            _dollyMotion = true;
+            _accumDeltaX = 0.0f;
+            _accumDeltaY = 0.0f;
+        }
+    }
+    else if (e.type == SDL_KEYUP)
+    {
+        if (e.key.keysym.sym == SDLK_LCTRL)
+        {
+            _dollyMotion = false;
+        }
+    }
 
     if (e.type == SDL_MOUSEMOTION)
     {

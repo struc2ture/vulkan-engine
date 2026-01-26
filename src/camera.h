@@ -11,6 +11,8 @@ public:
     float pitch { 0.0f };
     float yaw { 0.0f };
 
+    SDL_Window *SdlWindow;
+
     glm::mat4 getViewMatrix();
     glm::mat4 getRotationMatrix();
     glm::mat4 GetHorizontalRotationMatrix();
@@ -27,6 +29,10 @@ public:
 private:
     bool _orbitingMotion { false };
     bool _panningMotion { false };
+    bool _dollyMotion { false };
+
+    int _prevMouseX{ 0 };
+    int _prevMouseY{ 0 };
     
     float _accumDeltaX { 0.0f };
     float _accumDeltaY { 0.0f };
