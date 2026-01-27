@@ -47,6 +47,7 @@ layout (set = 1, binding = 0) uniform MaterialData
 	vec4 diffuse;
 	vec4 specular; // a - shininess
 	vec4 emission; // a - unused
+	vec4 bypassLight;
 
 } materialData;
 
@@ -177,7 +178,8 @@ void main()
 		finalLight += emission * materialData.emission.rgb;
 	}
 	
-	vec3 finalColor = finalLight;
+	vec3 litColor = finalLight;
+	vec3 bypassedColor = materialData.diffuse.rgb * diffuseTexel;
 	
-	outFragColor = vec4(finalColor, 1.0);
+	outFragColor = vec4(mix(litColor, bypassedColor, materialData.bypassLight.r), diffuseT.a * materialData.diffuse.a);
 }

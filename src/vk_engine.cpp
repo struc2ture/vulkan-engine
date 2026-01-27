@@ -382,10 +382,10 @@ void VulkanEngine::init_default_data()
 
     // Scene
     mainCamera.velocity = glm::vec3(0.0f);
-    mainCamera.position = glm::vec3(0, 1, 3);
+    mainCamera.position = glm::vec3(1.3f, 3.5f, 9.22f);
     //mainCamera.position = glm::vec3(30.f, -00.f, -085.f); // good for structure.glb scene
-    mainCamera.pitch = 0;
-    mainCamera.yaw = 0;
+    mainCamera.pitch = -15;
+    mainCamera.yaw = 30;
 
     mainCamera.SdlWindow = _window;
 
@@ -608,7 +608,8 @@ void VulkanEngine::init_debug_line_pipelines()
     pipelineBuilder.set_cull_mode(VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
     pipelineBuilder.set_multisampling_none();
     pipelineBuilder.disable_blending();
-    pipelineBuilder.enable_depthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+    //pipelineBuilder.enable_depthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+    pipelineBuilder.disable_depthtest();
     pipelineBuilder.set_color_attachment_format(_drawImage.imageFormat);
     pipelineBuilder.set_depth_format(_depthImage.imageFormat);
 
@@ -1097,18 +1098,18 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
     writer.update_set(_device, sceneCommonDataDescriptorSet);
 
     // sort opaque geometry by material and mesh to minimize pipeline state switches
-    std::vector<uint32_t> opaque_draws;
-    opaque_draws.reserve(mainDrawContext.opaqueSurfaces.size());
+    std::vector<uint32_t> opaqueDraws;
+    opaqueDraws.reserve(mainDrawContext.opaqueSurfaces.size());
 
     for (size_t i = 0; i < mainDrawContext.opaqueSurfaces.size(); i++)
     {
         // frustum culling
         if (is_visible(mainDrawContext.opaqueSurfaces[i], sceneData.viewproj)) {
-            opaque_draws.push_back(uint32_t(i));
+            opaqueDraws.push_back(uint32_t(i));
         }
     }
 
-    std::sort(opaque_draws.begin(), opaque_draws.end(), [&](const auto &iA, const auto &iB) {
+    std::sort(opaqueDraws.begin(), opaqueDraws.end(), [&](const auto &iA, const auto &iB) {
         const RenderObject &A = mainDrawContext.opaqueSurfaces[iA];
         const RenderObject &B = mainDrawContext.opaqueSurfaces[iB];
         if (A.material == B.material)
@@ -1119,6 +1120,22 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
         {
             return A.material < B.material;
         }
+    });
+
+    std::vector<uint32_t> transparentDraws;
+    transparentDraws.reserve(mainDrawContext.transparentSurfaces.size());
+    for (size_t i = 0; i < mainDrawContext.transparentSurfaces.size(); i++)
+    {
+        transparentDraws.push_back((uint32_t)i);
+    }
+
+    std::sort(transparentDraws.begin(), transparentDraws.end(), [&](const auto &iA, const auto &iB) {
+        const RenderObject &A = mainDrawContext.transparentSurfaces[iA];
+        const RenderObject &B = mainDrawContext.transparentSurfaces[iB];
+
+        float distA = glm::length(glm::vec3(A.transform * glm::vec4(A.bounds.origin, 1.0f)) - mainCamera.position);
+        float distB = glm::length(glm::vec3(B.transform * glm::vec4(B.bounds.origin, 1.0f)) - mainCamera.position);
+        return distA > distB;
     });
 
     // begin rendering
@@ -1182,17 +1199,17 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
         stats.triangle_count += renderObject.indexCount / 3;
     };
 
-    for (auto &i : opaque_draws)
+    for (auto &surfaceI : opaqueDraws)
     {
-        draw(mainDrawContext.opaqueSurfaces[i]);
+        draw(mainDrawContext.opaqueSurfaces[surfaceI]);
     }
 
-    for (const RenderObject &r : mainDrawContext.transparentSurfaces)
+    for (auto &surfaceI : transparentDraws)
     {
-        draw(r);
+        draw(mainDrawContext.transparentSurfaces[surfaceI]);
     }
 
-    stats.render_object_count = (int)opaque_draws.size() + (int)mainDrawContext.transparentSurfaces.size();
+    stats.render_object_count = (int)opaqueDraws.size() + (int)transparentDraws.size();
 
     vkCmdEndRendering(cmd);
 

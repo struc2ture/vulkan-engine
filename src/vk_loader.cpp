@@ -378,7 +378,9 @@ std::optional<std::shared_ptr<Scene>> load_scene(VulkanEngine *engine, std::stri
         newMaterial->hasParallaxImage = false;
 
         newMaterial->params = materialParams;
-        newMaterial->passType = MaterialPass::MainColor; // TODO: How to determine transparent pass
+        newMaterial->passType = material.alphaMode == fastgltf::AlphaMode::Blend ? MaterialPass::Transparent : MaterialPass::MainColor;
+        // Temporary way to avoid ugly lighting on intersecting bush billboards
+        if (material.alphaMode == fastgltf::AlphaMode::Mask) newMaterial->params.bypassedColor = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
 
         scene->retroMaterials.push_back(newMaterial);
     }

@@ -62,7 +62,8 @@ struct RetroMaterialParameters
 	glm::vec4 diffuse;
 	glm::vec4 specular; // a - shininess
 	glm::vec4 emission; // a - unused
-	glm::vec4 extra[13];
+	glm::vec4 bypassedColor;
+	glm::vec4 extra[12];
 };
 
 struct RetroMaterial
