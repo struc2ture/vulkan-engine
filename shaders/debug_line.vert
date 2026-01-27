@@ -24,7 +24,7 @@ layout (set = 1, binding = 0) uniform LineData
     vec4 end[MAX_DEBUG_LINES];
     vec4 startColor[MAX_DEBUG_LINES];
     vec4 endColor[MAX_DEBUG_LINES];
-    float thickness[MAX_DEBUG_LINES];
+    vec4 thickness[MAX_DEBUG_LINES];
 
 } lineData;
 
@@ -41,10 +41,10 @@ void main()
     vec2 lineDir = normalize(lineEnd_V.xy - lineStart_V.xy);
     vec2 linePerp = vec2(-lineDir.y, lineDir.x);
 
-    vec2 quadStartRight = lineStart_V.xy + linePerp * lineData.thickness[lineIndex] * 0.001;
-    vec2 quadStartLeft = lineStart_V.xy - linePerp * lineData.thickness[lineIndex] * 0.001;
-    vec2 quadEndRight = lineEnd_V.xy + linePerp * lineData.thickness[lineIndex] * 0.001;
-    vec2 quadEndLeft = lineEnd_V.xy - linePerp * lineData.thickness[lineIndex] * 0.001;
+    vec2 quadStartRight = lineStart_V.xy + linePerp * lineData.thickness[lineIndex].x * 0.001;
+    vec2 quadStartLeft = lineStart_V.xy - linePerp * lineData.thickness[lineIndex].x * 0.001;
+    vec2 quadEndRight = lineEnd_V.xy + linePerp * lineData.thickness[lineIndex].x * 0.001;
+    vec2 quadEndLeft = lineEnd_V.xy - linePerp * lineData.thickness[lineIndex].x * 0.001;
 
     vec2 verts[] = { quadStartLeft, quadStartRight, quadEndLeft, quadEndRight };
     vec4 colors[] = { lineData.startColor[lineIndex], lineData.startColor[lineIndex], lineData.endColor[lineIndex], lineData.endColor[lineIndex] };

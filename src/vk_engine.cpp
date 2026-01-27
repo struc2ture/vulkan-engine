@@ -1315,7 +1315,7 @@ void VulkanEngine::draw_debug_lines(VkCommandBuffer cmd)
             data.end[lineI] = glm::vec4(render_debug_line.end, 1.0f);
             data.startColor[lineI] = glm::vec4(render_debug_line.startColor, 1.0f);
             data.endColor[lineI] = glm::vec4(render_debug_line.endColor, 1.0f);
-            data.thickness[lineI] = render_debug_line.thickness;
+            data.thickness[lineI] = glm::vec4(render_debug_line.thickness, 0.0f, 0.0f, 0.0f);
             lineI++;
         }
 
