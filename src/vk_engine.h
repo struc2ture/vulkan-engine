@@ -100,7 +100,7 @@ struct RenderLightSpot
 	float outerCutoff;
 };
 
-struct RenderDebugObject
+struct RenderDebugIcon
 {
 	glm::vec3 position;
 	glm::vec3 color;
@@ -125,7 +125,7 @@ struct DrawContext
 	std::vector<RenderLightPoint> pointLights;
 	std::vector<RenderLightSpot> spotLights; 
 
-	std::vector<RenderDebugObject> debugObjects;
+	std::vector<RenderDebugIcon> debugIcons;
 	std::vector<RenderDebugLine> debugLines;
 };
 
@@ -231,7 +231,7 @@ public:
 	VkSampler _defaultSamplerLinear;
 	VkSampler _defaultSamplerNearest;
 
-	DrawContext mainDrawContext;
+	DrawContext _mainDrawContext;
 
 	Camera mainCamera;
 
@@ -265,7 +265,7 @@ public:
 	void draw_background(VkCommandBuffer cmd);
 	void draw_imgui(VkCommandBuffer cmd, VkImageView targetImageView);
 	void draw_geometry(VkCommandBuffer cmd);
-	void draw_gizmos(VkCommandBuffer cmd);
+	void draw_debug_icons(VkCommandBuffer cmd);
 	void draw_debug_lines(VkCommandBuffer cmd);
 
 	void run();

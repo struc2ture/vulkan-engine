@@ -950,7 +950,7 @@ void VulkanEngine::draw()
 
     draw_geometry(cmd);
 
-    draw_gizmos(cmd);
+    draw_debug_icons(cmd);
 
     draw_debug_lines(cmd);
 
@@ -1045,7 +1045,7 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 
         LightsData lightsData {};
 
-        for (auto &directionalLight : mainDrawContext.directionalLights)
+        for (auto &directionalLight : _mainDrawContext.directionalLights)
         {
             lightsData.dirDir[dirLightI] = glm::vec4{directionalLight.direction, directionalLight.power};
             lightsData.dirColor[dirLightI] = directionalLight.color;
@@ -1054,7 +1054,7 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
         lightsData.dirsUsed = dirLightI;
         assert(lightsData.dirsUsed <= MAX_LIGHTS);
 
-        for (auto &pointLight : mainDrawContext.pointLights)
+        for (auto &pointLight : _mainDrawContext.pointLights)
         {
             lightsData.pointPos[pointLightI] = pointLight.pos;
             lightsData.pointColor[pointLightI] = pointLight.color;
@@ -1064,7 +1064,7 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
         lightsData.pointsUsed = pointLightI;
         assert(lightsData.pointsUsed <= MAX_LIGHTS);
 
-        for (auto &spotLight : mainDrawContext.spotLights)
+        for (auto &spotLight : _mainDrawContext.spotLights)
         {
             lightsData.spotPos[spotLightI] = spotLight.pos;
             lightsData.spotDir[spotLightI] = spotLight.direction;
@@ -1099,19 +1099,19 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 
     // sort opaque geometry by material and mesh to minimize pipeline state switches
     std::vector<uint32_t> opaqueDraws;
-    opaqueDraws.reserve(mainDrawContext.opaqueSurfaces.size());
+    opaqueDraws.reserve(_mainDrawContext.opaqueSurfaces.size());
 
-    for (size_t i = 0; i < mainDrawContext.opaqueSurfaces.size(); i++)
+    for (size_t i = 0; i < _mainDrawContext.opaqueSurfaces.size(); i++)
     {
         // frustum culling
-        if (is_visible(mainDrawContext.opaqueSurfaces[i], sceneData.viewproj)) {
+        if (is_visible(_mainDrawContext.opaqueSurfaces[i], sceneData.viewproj)) {
             opaqueDraws.push_back(uint32_t(i));
         }
     }
 
     std::sort(opaqueDraws.begin(), opaqueDraws.end(), [&](const auto &iA, const auto &iB) {
-        const RenderObject &A = mainDrawContext.opaqueSurfaces[iA];
-        const RenderObject &B = mainDrawContext.opaqueSurfaces[iB];
+        const RenderObject &A = _mainDrawContext.opaqueSurfaces[iA];
+        const RenderObject &B = _mainDrawContext.opaqueSurfaces[iB];
         if (A.material == B.material)
         {
             return A.indexBuffer < B.indexBuffer;
@@ -1123,15 +1123,15 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
     });
 
     std::vector<uint32_t> transparentDraws;
-    transparentDraws.reserve(mainDrawContext.transparentSurfaces.size());
-    for (size_t i = 0; i < mainDrawContext.transparentSurfaces.size(); i++)
+    transparentDraws.reserve(_mainDrawContext.transparentSurfaces.size());
+    for (size_t i = 0; i < _mainDrawContext.transparentSurfaces.size(); i++)
     {
         transparentDraws.push_back((uint32_t)i);
     }
 
     std::sort(transparentDraws.begin(), transparentDraws.end(), [&](const auto &iA, const auto &iB) {
-        const RenderObject &A = mainDrawContext.transparentSurfaces[iA];
-        const RenderObject &B = mainDrawContext.transparentSurfaces[iB];
+        const RenderObject &A = _mainDrawContext.transparentSurfaces[iA];
+        const RenderObject &B = _mainDrawContext.transparentSurfaces[iB];
 
         float distA = glm::length(glm::vec3(A.transform * glm::vec4(A.bounds.origin, 1.0f)) - mainCamera.position);
         float distB = glm::length(glm::vec3(B.transform * glm::vec4(B.bounds.origin, 1.0f)) - mainCamera.position);
@@ -1201,12 +1201,12 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 
     for (auto &surfaceI : opaqueDraws)
     {
-        draw(mainDrawContext.opaqueSurfaces[surfaceI]);
+        draw(_mainDrawContext.opaqueSurfaces[surfaceI]);
     }
 
     for (auto &surfaceI : transparentDraws)
     {
-        draw(mainDrawContext.transparentSurfaces[surfaceI]);
+        draw(_mainDrawContext.transparentSurfaces[surfaceI]);
     }
 
     stats.render_object_count = (int)opaqueDraws.size() + (int)transparentDraws.size();
@@ -1219,7 +1219,7 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
     stats.mesh_draw_time = elapsed.count() / 1000.0f;
 }
 
-void VulkanEngine::draw_gizmos(VkCommandBuffer cmd)
+void VulkanEngine::draw_debug_icons(VkCommandBuffer cmd)
 {
     // Scene Common Data descriptor set (0)
     VkDescriptorSet sceneCommonDataDescriptorSet = get_current_frame()._frameDescriptors.allocate(_device, _sceneCommonDataDescriptorLayout);
@@ -1278,12 +1278,12 @@ void VulkanEngine::draw_gizmos(VkCommandBuffer cmd)
 
     vkCmdBindIndexBuffer(cmd, _debugMeshBuffer.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
-    for (auto &debugObject : mainDrawContext.debugObjects)
+    for (auto &debugIcon : _mainDrawContext.debugIcons)
     {
         GizmoPushConstants pushConstants;
-        pushConstants.billboardPos = glm::vec4(debugObject.position, 1.0f);
-        pushConstants.billboardSize = glm::vec4(debugObject.size, 0.0f, 0.0f);
-        pushConstants.billboardColor = glm::vec4(debugObject.color, 1.0f);
+        pushConstants.billboardPos = glm::vec4(debugIcon.position, 1.0f);
+        pushConstants.billboardSize = glm::vec4(debugIcon.size, 0.0f, 0.0f);
+        pushConstants.billboardColor = glm::vec4(debugIcon.color, 1.0f);
         pushConstants.vertexBuffer = _debugMeshBuffer.vertexBufferAddress;
         vkCmdPushConstants(cmd, _debugPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GizmoPushConstants), &pushConstants);
 
@@ -1326,7 +1326,7 @@ void VulkanEngine::draw_debug_lines(VkCommandBuffer cmd)
         DebugLineData data {};
 
         int lineI = 0;
-        for (auto &render_debug_line : mainDrawContext.debugLines)
+        for (auto &render_debug_line : _mainDrawContext.debugLines)
         {
             data.start[lineI] = glm::vec4(render_debug_line.start, 1.0f);
             data.end[lineI] = glm::vec4(render_debug_line.end, 1.0f);
@@ -1372,7 +1372,7 @@ void VulkanEngine::draw_debug_lines(VkCommandBuffer cmd)
 
     vkCmdSetScissor(cmd, 0, 1, &scissor);
     
-    vkCmdDraw(cmd, 6 * mainDrawContext.debugLines.size(), 1, 0, 0);
+    vkCmdDraw(cmd, 6 * _mainDrawContext.debugLines.size(), 1, 0, 0);
 
     vkCmdEndRendering(cmd);
 }
@@ -1459,17 +1459,44 @@ void VulkanEngine::update_scene()
 
     mainCamera.update();
 
-    mainDrawContext.opaqueSurfaces.clear();
-    mainDrawContext.transparentSurfaces.clear();
-    mainDrawContext.directionalLights.clear();
-    mainDrawContext.pointLights.clear();
-    mainDrawContext.spotLights.clear();
-    mainDrawContext.debugObjects.clear();
-    mainDrawContext.debugLines.clear();
+    _mainDrawContext.opaqueSurfaces.clear();
+    _mainDrawContext.transparentSurfaces.clear();
+    _mainDrawContext.directionalLights.clear();
+    _mainDrawContext.pointLights.clear();
+    _mainDrawContext.spotLights.clear();
+    _mainDrawContext.debugIcons.clear();
+    _mainDrawContext.debugLines.clear();
+
+    // Add origin axes
+    {
+        RenderDebugLine originLineX {};
+        originLineX.start = glm::vec3(0.0f);
+        originLineX.end = originLineX.start + 3.0f * glm::vec3(1.0f, 0.0f, 0.0f);
+        originLineX.startColor = glm::vec3(1.0f, 0.0f, 0.0f);
+        originLineX.endColor = glm::vec3(1.0f, 0.0f, 0.0f);
+        originLineX.thickness = 2.0f;
+        _mainDrawContext.debugLines.push_back(originLineX);
+
+        RenderDebugLine originLineY {};
+        originLineY.start = glm::vec3(0.0f);
+        originLineY.end = originLineY.start + 3.0f * glm::vec3(0.0f, 1.0f, 0.0f);
+        originLineY.startColor = glm::vec3(0.0f, 1.0f, 0.0f);
+        originLineY.endColor = glm::vec3(0.0f, 1.0f, 0.0f);
+        originLineY.thickness = 2.0f;
+        _mainDrawContext.debugLines.push_back(originLineY);
+
+        RenderDebugLine originLineZ {};
+        originLineZ.start = glm::vec3(0.0f);
+        originLineZ.end = originLineZ.start + 3.0f * glm::vec3(0.0f, 0.0f, 1.0f);
+        originLineZ.startColor = glm::vec3(0.0f, 0.0f, 1.0f);
+        originLineZ.endColor = glm::vec3(0.0f, 0.0f, 1.0f);
+        originLineZ.thickness = 2.0f;
+        _mainDrawContext.debugLines.push_back(originLineZ);
+    }
     
     for (auto &scene : _localScenes)
     {
-        scene->Draw(glm::mat4{ 1.0f }, mainDrawContext);
+        scene->Draw(glm::mat4{ 1.0f }, _mainDrawContext);
     }
 
     sceneData.view = mainCamera.getViewMatrix();
@@ -1576,8 +1603,8 @@ void VulkanEngine::imgui_render_objects()
 {
     if (ImGui::Begin("Render Objects", &_imguiRenderObjectsWindow))
     {
-        ImGui::Text("Opaque Surfaces: %zu", mainDrawContext.opaqueSurfaces.size());
-        ImGui::Text("Transparent Surfaces: %zu", mainDrawContext.transparentSurfaces.size());
+        ImGui::Text("Opaque Surfaces: %zu", _mainDrawContext.opaqueSurfaces.size());
+        ImGui::Text("Transparent Surfaces: %zu", _mainDrawContext.transparentSurfaces.size());
     }
     ImGui::End();
 }

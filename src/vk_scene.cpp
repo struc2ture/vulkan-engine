@@ -191,7 +191,7 @@ void SceneNode::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
             assert(primitive.material == nullptr);
             assert(primitive.retroMaterial != nullptr);
 
-            RenderObject def;
+            RenderObject def {};
             def.indexCount = primitive.indexCount;
             def.firstIndex = primitive.startIndex;
             def.indexBuffer = Mesh->meshBuffer.indexBuffer.buffer;
@@ -217,7 +217,7 @@ void SceneNode::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
         {
         case SceneLight::Kind::Directional:
         {
-            RenderLightDirectional directionalLight;
+            RenderLightDirectional directionalLight {};
             directionalLight.direction = -nodeMatrix[2];
             directionalLight.power = Light->Power;
             directionalLight.color = Light->Color;
@@ -227,7 +227,7 @@ void SceneNode::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
         } break;
         case SceneLight::Kind::Point:
         {
-            RenderLightPoint pointLight;
+            RenderLightPoint pointLight {};
             pointLight.pos = nodeMatrix[3];
             pointLight.color = Light->Color;
             pointLight.attenuationLinear = Light->AttenuationLinear;
@@ -238,7 +238,7 @@ void SceneNode::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
         } break;
         case SceneLight::Kind::Spotlight:
         {
-            RenderLightSpot spotLight;
+            RenderLightSpot spotLight {};
             spotLight.pos = nodeMatrix[3];
             spotLight.color = Light->Color;
             spotLight.direction = -nodeMatrix[2];
@@ -260,11 +260,11 @@ void SceneNode::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
         } break;
         }
 
-        RenderDebugObject debugObject;
-        debugObject.position = nodeMatrix[3];
-        debugObject.color = debugColor;
-        debugObject.size = glm::vec2(0.07f, 0.07f);
-        ctx.debugObjects.push_back(debugObject);
+        RenderDebugIcon debugIcon {};
+        debugIcon.position = nodeMatrix[3];
+        debugIcon.color = debugColor;
+        debugIcon.size = glm::vec2(0.07f, 0.07f);
+        ctx.debugIcons.push_back(debugIcon);
     }
 
     for (auto &child : Children)
@@ -275,31 +275,6 @@ void SceneNode::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
 
 void Scene::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
 {
-    RenderDebugLine originLineX {};
-    originLineX.start = glm::vec3(0.0f);
-    originLineX.end = originLineX.start + 3.0f * glm::vec3(1.0f, 0.0f, 0.0f);
-    originLineX.startColor = glm::vec3(1.0f, 0.0f, 0.0f);
-    originLineX.endColor = glm::vec3(1.0f, 0.0f, 0.0f);
-    originLineX.thickness = 2.0f;
-    ctx.debugLines.push_back(originLineX);
-
-    RenderDebugLine originLineY {};
-    originLineY.start = glm::vec3(0.0f);
-    originLineY.end = originLineY.start + 3.0f * glm::vec3(0.0f, 1.0f, 0.0f);
-    originLineY.startColor = glm::vec3(0.0f, 1.0f, 0.0f);
-    originLineY.endColor = glm::vec3(0.0f, 1.0f, 0.0f);
-    originLineY.thickness = 2.0f;
-    ctx.debugLines.push_back(originLineY);
-
-    RenderDebugLine originLineZ {};
-    originLineZ.start = glm::vec3(0.0f);
-    originLineZ.end = originLineZ.start + 3.0f * glm::vec3(0.0f, 0.0f, 1.0f);
-    originLineZ.startColor = glm::vec3(0.0f, 0.0f, 1.0f);
-    originLineZ.endColor = glm::vec3(0.0f, 0.0f, 1.0f);
-    originLineZ.thickness = 2.0f;
-    ctx.debugLines.push_back(originLineZ);
-
-
     for (auto &node : topNodes)
     {
         node->Draw(topMatrix, ctx);

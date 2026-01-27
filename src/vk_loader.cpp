@@ -304,7 +304,7 @@ std::optional<std::shared_ptr<Scene>> load_scene(VulkanEngine *engine, std::stri
             newMaterial->colorSampler = scene->samplers[samplerI];
         }
         newMaterial->params = materialParams;
-        newMaterial->passType = MaterialPass::MainColor; // TODO: How to determine transparent pass
+        newMaterial->passType = MaterialPass::MainColor;
 
         scene->materials.push_back(newMaterial);
     }
