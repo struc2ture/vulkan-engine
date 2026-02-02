@@ -1305,8 +1305,8 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 
     for (size_t i = 0; i < _mainDrawContext.opaqueSurfaces.size(); i++)
     {
-        // frustum culling
-        if (is_visible(_mainDrawContext.opaqueSurfaces[i], sceneData.viewproj)) {
+        // frustum culling (skip for now)
+        if (true || is_visible(_mainDrawContext.opaqueSurfaces[i], sceneData.viewproj)) {
             opaqueDraws.push_back(uint32_t(i));
         }
     }

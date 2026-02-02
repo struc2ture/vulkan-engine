@@ -67,12 +67,36 @@ layout (set = 2, binding = 0) uniform sampler2D shadowMapDepth;
 float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir)
 {
     vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
-    float closestDepth = texture(shadowMapDepth, projCoords.xy * 0.5 + 0.5).r; 
     float currentDepth = projCoords.z;
+	projCoords = projCoords * 0.5 + 0.5;
+    float closestDepth = texture(shadowMapDepth, projCoords.xy).r;
 	// Here we have a maximum bias of 0.05 and a minimum of 0.005 based on the surface's normal and light direction.
 	// float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
 	float bias = 0.005;
     float shadow = (currentDepth - bias) > closestDepth  ? 1.0 : 0.0;
+	if (projCoords.z > 1.0) shadow = 0.0;
+    return shadow;
+}
+
+float ShadowCalculationPCF(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir)
+{
+    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+    float currentDepth = projCoords.z;
+	projCoords = projCoords * 0.5 + 0.5;
+	float bias = 0.005;
+
+	float shadow = 0.0;
+	vec2 texelSize = 1.0 / textureSize(shadowMapDepth, 0);
+	for(int x = -1; x <= 1; ++x)
+	{
+		for(int y = -1; y <= 1; ++y)
+		{
+			float pcfDepth = texture(shadowMapDepth, projCoords.xy + vec2(x, y) * texelSize).r; 
+			shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;
+		}
+	}
+	shadow /= 9.0;
+
 	if (projCoords.z > 1.0) shadow = 0.0;
     return shadow;
 }
@@ -205,7 +229,7 @@ void main()
 	// emission
 	vec3 emission = texture(emissionTex, inUV).rgb * materialData.emission.rgb;
 
-	float shadow = ShadowCalculation(inFragPosLightSpace, norm, lightsData.dirDir[0].xyz);
+	float shadow = ShadowCalculationPCF(inFragPosLightSpace, norm, lightsData.dirDir[0].xyz);
 
 	vec3 litColor = ambient + diffSpecLight * (1.0 - shadow) + emission;
 	vec3 bypassedColor = materialData.diffuse.rgb * diffuseTexel;
