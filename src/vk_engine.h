@@ -76,6 +76,7 @@ struct RenderObject
 
 struct RenderLightDirectional
 {
+	glm::vec3 position;
 	glm::vec3 direction;
 	float power;
 	glm::vec4 color;
@@ -205,6 +206,13 @@ public:
 	VkPipelineLayout _debugLinePipelineLayout;
 	VkDescriptorSetLayout _debugLineDescriptorSetLayout;
 
+	VkPipeline _shadowMapPipeline;
+	VkPipelineLayout _shadowMapPipelineLayout;
+	VkDescriptorSetLayout _shadowMapDescriptorSetLayout;
+
+	VkDescriptorSetLayout _shadowReadDescriptorSetLayout;
+
+
 	VkFence _immFence;
 	VkCommandBuffer _immCommandBuffer;
 	VkCommandPool _immCommandPool;
@@ -230,6 +238,7 @@ public:
 
 	VkSampler _defaultSamplerLinear;
 	VkSampler _defaultSamplerNearest;
+	VkSampler _shadowMapSampler;
 
 	DrawContext _mainDrawContext;
 
@@ -246,6 +255,8 @@ public:
 	std::weak_ptr<Scene> _inspectedScene;
 
 	std::unordered_map<std::shared_ptr<SceneImage>, std::shared_ptr<ImguiPreviewTexture>> _imguiPreviewTextures;
+
+	AllocatedImage _shadowDepthImage;
 
 	bool _imguiBackgroundWindow{ false };
 	bool _imguiStatsWindow{ false };
@@ -264,6 +275,7 @@ public:
 	void draw();
 	void draw_background(VkCommandBuffer cmd);
 	void draw_imgui(VkCommandBuffer cmd, VkImageView targetImageView);
+	void draw_shadow_geometry(VkCommandBuffer cmd, glm::mat4 lightSpaceTransform);
 	void draw_geometry(VkCommandBuffer cmd);
 	void draw_debug_icons(VkCommandBuffer cmd);
 	void draw_debug_lines(VkCommandBuffer cmd);
@@ -296,12 +308,15 @@ private:
 	void init_background_pipelines();
 	void init_debug_pipelines();
 	void init_debug_line_pipelines();
+	void init_shadow_map_pipelines();
 
 	void init_default_data();
 
 	void init_debug_objects();
 
 	void init_imgui();
+
+	void init_shadow_depth_map();
 
 	void resize_swapchain();
 

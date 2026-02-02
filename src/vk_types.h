@@ -83,16 +83,29 @@ struct GizmoPushConstants
     VkDeviceAddress vertexBuffer;
 };
 
+struct ShadowMapPushConstants
+{
+    glm::mat4 model;
+    VkDeviceAddress vertexBuffer;
+};
+
 struct SceneCommonData
 {
     glm::mat4 view;
     glm::mat4 proj;
     glm::mat4 viewproj;
+    glm::mat4 lightSpaceTransform;
     glm::vec4 ambient;
     glm::vec4 viewPos;
     glm::vec4 cameraRight;
     glm::vec4 cameraUp;
     glm::vec4 aspect;
+
+};
+
+struct ShadowMapData
+{
+    glm::mat4 lightSpaceTransform;
 };
 
 #define MAX_LIGHTS 64

@@ -9,7 +9,8 @@ layout (location = 0) out vec3 outNormal;
 layout (location = 1) out vec3 outColor;
 layout (location = 2) out vec2 outUV;
 layout (location = 3) out vec3 outFragPos;
-layout (location = 4) out mat3 outTBN;
+layout (location = 4) out vec4 outFragPosLightSpace;
+layout (location = 5) out mat3 outTBN;
 
 struct Vertex
 {
@@ -47,6 +48,8 @@ void main()
 	outUV.x = v.uv_x;
 	outUV.y = v.uv_y;
 	outFragPos = vec3(PushConstants.render_matrix * position);
+
+	outFragPosLightSpace = sceneData.lightSpaceTransform * PushConstants.render_matrix * position;
 	
 	vec3 T = normalize(vec3(normalMat * v.tangent.xyz));
 	vec3 N = normalize(vec3(normalMat * v.normal));

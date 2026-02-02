@@ -218,6 +218,7 @@ void SceneNode::Draw(const glm::mat4 &topMatrix, DrawContext &ctx)
         case SceneLight::Kind::Directional:
         {
             RenderLightDirectional directionalLight {};
+            directionalLight.position = nodeMatrix[3];
             directionalLight.direction = -nodeMatrix[2];
             directionalLight.power = Light->Power;
             directionalLight.color = Light->Color;

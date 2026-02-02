@@ -54,7 +54,7 @@ void StandardMaterial::BuildPipelines(VulkanEngine *engine)
     pipelineBuilder.set_multisampling_none();
     pipelineBuilder.disable_blending();
     //pipelineBuilder.enable_blending_alphablend();
-    pipelineBuilder.enable_depthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+    pipelineBuilder.enable_depthtest(true, VK_COMPARE_OP_LESS_OR_EQUAL);
 
     pipelineBuilder.set_color_attachment_format(engine->_drawImage.imageFormat);
     pipelineBuilder.set_depth_format(engine->_depthImage.imageFormat);
@@ -67,7 +67,7 @@ void StandardMaterial::BuildPipelines(VulkanEngine *engine)
     //pipelineBuilder.enable_blending_additive();
     pipelineBuilder.enable_blending_alphablend();
 
-    pipelineBuilder.enable_depthtest(false, VK_COMPARE_OP_GREATER_OR_EQUAL);
+    pipelineBuilder.enable_depthtest(false, VK_COMPARE_OP_LESS_OR_EQUAL);
 
     TransparentPipeline.pipeline = pipelineBuilder.build_pipeline(engine->_device);
 
@@ -136,10 +136,10 @@ void RetroMaterial::BuildPipelines(VulkanEngine *engine)
 
     DescriptorLayout = layoutBuilder.build(engine->_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
 
-    VkDescriptorSetLayout layouts[] = { engine->_sceneCommonDataDescriptorLayout, DescriptorLayout };
+    VkDescriptorSetLayout layouts[] = { engine->_sceneCommonDataDescriptorLayout, DescriptorLayout, engine->_shadowReadDescriptorSetLayout };
 
     VkPipelineLayoutCreateInfo mesh_layout_info = vkinit::pipeline_layout_create_info();
-    mesh_layout_info.setLayoutCount = 2;
+    mesh_layout_info.setLayoutCount = 3;
     mesh_layout_info.pSetLayouts = layouts;
     mesh_layout_info.pPushConstantRanges = &matrixRange;
     mesh_layout_info.pushConstantRangeCount = 1;
@@ -158,7 +158,8 @@ void RetroMaterial::BuildPipelines(VulkanEngine *engine)
     pipelineBuilder.set_multisampling_none();
     pipelineBuilder.disable_blending();
     //pipelineBuilder.enable_blending_alphablend();
-    pipelineBuilder.enable_depthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+    pipelineBuilder.enable_depthtest(true, VK_COMPARE_OP_LESS_OR_EQUAL);
+    //pipelineBuilder.disable_depthtest();
 
     pipelineBuilder.set_color_attachment_format(engine->_drawImage.imageFormat);
     pipelineBuilder.set_depth_format(engine->_depthImage.imageFormat);
@@ -171,7 +172,8 @@ void RetroMaterial::BuildPipelines(VulkanEngine *engine)
     //pipelineBuilder.enable_blending_additive();
     pipelineBuilder.enable_blending_alphablend();
 
-    pipelineBuilder.enable_depthtest(false, VK_COMPARE_OP_GREATER_OR_EQUAL);
+    pipelineBuilder.enable_depthtest(false, VK_COMPARE_OP_LESS_OR_EQUAL);
+    //pipelineBuilder.disable_depthtest();
 
     TransparentPipeline.pipeline = pipelineBuilder.build_pipeline(engine->_device);
 

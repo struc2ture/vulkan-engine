@@ -4,7 +4,8 @@ layout (location = 0) in vec3 inNormal;
 layout (location = 1) in vec3 inColor;
 layout (location = 2) in vec2 inUV;
 layout (location = 3) in vec3 inFragPos;
-layout (location = 4) in mat3 inTBN;
+layout (location = 4) in vec4 inFragPosLightSpace;
+layout (location = 5) in mat3 inTBN;
 
 layout (location = 0) out vec4 outFragColor;
 
@@ -13,8 +14,12 @@ layout (set = 0, binding = 0) uniform SceneData
 	mat4 view;
 	mat4 proj;
 	mat4 viewproj;
+	mat4 lightSpaceTransform;
 	vec4 ambient;
 	vec4 viewPos;
+    vec4 cameraRight;
+    vec4 cameraUp;
+	vec4 aspect;
 
 } sceneData;
 
@@ -57,6 +62,31 @@ layout (set = 1, binding = 3) uniform sampler2D emissionTex;
 layout (set = 1, binding = 4) uniform sampler2D normalTex;
 layout (set = 1, binding = 5) uniform sampler2D parallaxTex;
 
+layout (set = 2, binding = 0) uniform sampler2D shadowMapDepth;
+
+float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir)
+{
+    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+    float closestDepth = texture(shadowMapDepth, projCoords.xy * 0.5 + 0.5).r; 
+    float currentDepth = projCoords.z;
+	// Here we have a maximum bias of 0.05 and a minimum of 0.005 based on the surface's normal and light direction.
+	// float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
+	float bias = 0.005;
+    float shadow = (currentDepth - bias) > closestDepth  ? 1.0 : 0.0;
+	if (projCoords.z > 1.0) shadow = 0.0;
+    return shadow;
+}
+
+float Test(vec4 fragPosLightSpace)
+{
+    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+    projCoords = projCoords * 0.5 + 0.5;
+    float closestDepth = texture(shadowMapDepth, projCoords.xy).r; 
+    float currentDepth = projCoords.z;
+    float shadow = closestDepth;
+    return shadow;
+}
+
 void main()
 {
 	vec4 diffuseT =  texture(diffuseTex, inUV);
@@ -77,11 +107,11 @@ void main()
 	norm = normalize(norm * 2.0 - 1.0);
 	norm = normalize(inTBN * norm);
 	
-	vec3 finalLight = vec3(0.0);
 	
 	// ambient
 	vec3 ambient = sceneData.ambient.rgb * diffuseTexel;
-	finalLight += ambient;
+
+	vec3 diffSpecLight = vec3(0.0);
 	
 	// directional lights
 	for (int i = 0; i < lightsData.dirsUsed; i++)
@@ -95,7 +125,7 @@ void main()
 		// diffuse
 		float diff = max(dot(norm, lightDir), 0.0);
 		
-		finalLight += lightColor * lightPower * diff * materialData.diffuse.rgb * diffuseTexel;
+		diffSpecLight += lightColor * lightPower * diff * materialData.diffuse.rgb * diffuseTexel;
 		
 		// specular
 		vec3 viewDir = normalize(sceneData.viewPos.xyz - inFragPos);
@@ -104,7 +134,7 @@ void main()
 		float shininess = materialData.specular.a;
 		float spec = pow(max(dot(norm, halfwayDir), 0.0), shininess);
 		
-		finalLight += lightColor * lightPower * spec * materialData.specular.rgb * specularTexel;
+		diffSpecLight += lightColor * lightPower * spec * materialData.specular.rgb * specularTexel;
 	}
 	
 	// point lights
@@ -125,7 +155,7 @@ void main()
 		
 		float diff = max(dot(norm, lightDir), 0.0);
 		
-		finalLight += lightColor * diff * attenuation * materialData.diffuse.rgb * diffuseTexel;
+		diffSpecLight += lightColor * diff * attenuation * materialData.diffuse.rgb * diffuseTexel;
 		
 		// specular
 		vec3 viewDir = normalize(sceneData.viewPos.xyz - inFragPos);
@@ -134,7 +164,7 @@ void main()
 		float shininess = materialData.specular.a;
 		float spec = pow(max(dot(norm, halfwayDir), 0.0), shininess);
 		
-		finalLight += lightColor * spec * attenuation * materialData.specular.rgb * specularTexel;
+		diffSpecLight += lightColor * spec * attenuation * materialData.specular.rgb * specularTexel;
 	}
 	
 	// spotlights
@@ -161,7 +191,7 @@ void main()
 
 		// diffuse
 		float diff = max(dot(norm, lightDir), 0.0);
-		finalLight += lightColor * diff * intensity * attenuation * materialData.diffuse.rgb * diffuseTexel;
+		diffSpecLight += lightColor * diff * intensity * attenuation * materialData.diffuse.rgb * diffuseTexel;
 		
 		// specular
 		vec3 viewDir = normalize(sceneData.viewPos.xyz - inFragPos);
@@ -169,17 +199,17 @@ void main()
 		vec3 halfwayDir = normalize(lightDir + viewDir);
 		float shininess = materialData.specular.a;
 		float spec = pow(max(dot(norm, halfwayDir), 0.0), shininess);
-		finalLight += lightColor * spec * intensity * attenuation * materialData.specular.rgb * specularTexel;
+		diffSpecLight += lightColor * spec * intensity * attenuation * materialData.specular.rgb * specularTexel;
 	}
 	
 	// emission
-	{
-		vec3 emission = texture(emissionTex, inUV).rgb;
-		finalLight += emission * materialData.emission.rgb;
-	}
-	
-	vec3 litColor = finalLight;
+	vec3 emission = texture(emissionTex, inUV).rgb * materialData.emission.rgb;
+
+	float shadow = ShadowCalculation(inFragPosLightSpace, norm, lightsData.dirDir[0].xyz);
+
+	vec3 litColor = ambient + diffSpecLight * (1.0 - shadow) + emission;
 	vec3 bypassedColor = materialData.diffuse.rgb * diffuseTexel;
-	
-	outFragColor = vec4(mix(litColor, bypassedColor, materialData.bypassLight.r), diffuseT.a * materialData.diffuse.a);
+
+	vec3 color = mix(litColor, bypassedColor, materialData.bypassLight.r);
+	outFragColor = vec4(color, diffuseT.a * materialData.diffuse.a);
 }

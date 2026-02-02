@@ -153,7 +153,7 @@ VkRenderingAttachmentInfo vkinit::depth_attachment_info(
     depthAttachment.imageLayout = layout;
     depthAttachment.loadOp = clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
     depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    if (clear) depthAttachment.clearValue.depthStencil.depth = 0.f;
+    if (clear) depthAttachment.clearValue.depthStencil.depth = 1.f;
 
     return depthAttachment;
 }
@@ -168,7 +168,7 @@ VkRenderingInfo vkinit::rendering_info(VkExtent2D renderExtent, VkRenderingAttac
 
     renderInfo.renderArea = VkRect2D { VkOffset2D { 0, 0 }, renderExtent };
     renderInfo.layerCount = 1;
-    renderInfo.colorAttachmentCount = 1;
+    renderInfo.colorAttachmentCount = colorAttachment ? 1 : 0;
     renderInfo.pColorAttachments = colorAttachment;
     renderInfo.pDepthAttachment = depthAttachment;
     renderInfo.pStencilAttachment = nullptr;
